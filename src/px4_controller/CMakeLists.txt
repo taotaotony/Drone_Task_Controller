@@ -7,6 +7,19 @@ project(px4_controller)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
+set(CUDA_INCLUDE_DIRS /usr/local/cuda/include)
+set(CUDA_LIB_DIR /usr/local/cuda/lib64)
+
+include_directories(
+  ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
+  ${TENSORRT_INCLUDE_DIR}     # /usr/include/aarch64-linux-gnu
+  ${CUDA_INCLUDE_DIRS}        # /usr/local/cuda/include
+)
+
+set(OpenCV_DIR /usr/local/lib/cmake/opencv4)
+find_package(OpenCV REQUIRED PATHS ${OpenCV_DIR} NO_DEFAULT_PATH)
+
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
@@ -15,7 +28,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   #Eigen3 REQUIRED
 )
-
+find_package(OpenCV REQUIRED)
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -140,7 +153,7 @@ include_directories(
 add_executable(SetPoint src/SetPoint.cpp)
 add_executable(Main src/main.cpp src/WebServer.cpp src/communication.cpp src/control.cpp src/aim.cpp src/Drone.cpp)
 add_executable(Throw src/throw.cpp)
-
+add_executable(cvisual src/cvisual.cpp)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -161,6 +174,13 @@ target_link_libraries(Main
 )
 target_link_libraries(Throw
   ${catkin_LIBRARIES}
+)
+target_link_libraries(cvisual
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}
+  nvinfer nvinfer_plugin nvparsers nvonnxparser
+  cudart cublas
+  pthread
 )
 #############
 ## Install ##

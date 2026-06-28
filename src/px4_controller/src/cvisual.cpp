@@ -287,7 +287,7 @@ int main(int argc, char** argv) {
             }
             pub.publish(msg);
 
-            ROS_INFO("send target1 lu: x=%.1f,y=%.1f,msg.Target1_LU_x,msg.Target1_LU_y")
+            ROS_INFO("send target1 lu: x=%.1f,y=%.1f,msg.Target1_LU_x,msg.Target1_LU_y");
 
             ros::spinOnce();
         } catch (const cv::Exception& e) {

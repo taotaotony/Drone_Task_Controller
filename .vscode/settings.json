@@ -83,5 +83,6 @@
         "variant": "cpp"
     },
     "cmake.sourceDirectory": "/home/ros/Desktop/CUADC_ws/src/px4_controller",
-    "ros.distro": "noetic"
+    "ros.distro": "noetic",
+    "ROS2.distro": "noetic"
 }
