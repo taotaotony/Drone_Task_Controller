@@ -293,7 +293,6 @@ void Drone::ExecuteZhencha()
 
 void Drone::ExecuteMiaozhun()
 {
-    // 如果需要单独瞄准投放（不经过 Locating 的完整流程）
     Locating();
-    RequestTransition(DroneState_ZHENCHA);
+    //RequestTransition(DroneState_ZHENCHA);
 }
