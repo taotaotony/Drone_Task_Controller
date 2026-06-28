@@ -195,16 +195,7 @@ void Locating()
         Barrel3X=(VisualData.Target3_LU_x+VisualData.Target3_RD_x)/2;
         Barrel1Y=(VisualData.Target1_LU_y+VisualData.Target1_RD_y)/2;
         Barrel2Y=(VisualData.Target2_LU_y+VisualData.Target2_RD_y)/2;
-        Barrel3Y=(VisualData.Target3_LU_y+VisualData.Target3_RD_y)/2;
-
-                    
-        /*/ROS_INFO("111111");
-        ROS_INFO("Barrel1X: %f", Barrel1X);
-        ROS_INFO("Barrel2X: %f", Barrel2X);
-        ROS_INFO("Barrel3X: %f", Barrel3X);
-        ROS_INFO("Barrel1Y: %f", Barrel1Y);
-        ROS_INFO("Barrel2Y: %f", Barrel2Y);
-        ROS_INFO("Barrel3Y: %f", Barrel3Y); /*/       
+        Barrel3Y=(VisualData.Target3_LU_y+VisualData.Target3_RD_y)/2;      
 
         if(Barrel1X != 0 && Barrel1Y != 0){allPositions.push_back({Barrel1X,Barrel1Y});}
         if(Barrel2X != 0 && Barrel2Y != 0){allPositions.push_back({Barrel2X,Barrel2Y});}
