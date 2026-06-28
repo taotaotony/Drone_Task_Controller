@@ -274,6 +274,7 @@ void Drone::ExecuteReturn()
 void Drone::ExecuteLand()
 {
     Land();
+    RequestTransition(DroneState_NONE);
     // 终态，不再跳转
 }
 
