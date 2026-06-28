@@ -5,17 +5,19 @@
 #include <string>
 #include <map>
 #include <set>
+#include "main.h"
 
 // ── 无人机状态枚举 ────────────────────────────
 enum DroneState
 {
-    DroneState_NONE  = -1,     // 空状态
-    DroneState_TAKEOFF  = 0,   // 起飞
-    DroneState_GOAL     = 1,   // 飞往目标点
-    DroneState_RETURN   = 2,   // 返航
-    DroneState_LAND     = 3,   // 降落
-    DroneState_ZHENCHA  = 4,   // 侦察
-    DroneState_MIAOZHUN = 5    // 瞄准投放
+    DroneState_NONE     = -1,  // 初始状态
+    DroneState_WAITING  = 0,   // 空状态
+    DroneState_TAKEOFF  = 1,   // 起飞
+    DroneState_GOAL     = 2,   // 飞往目标点
+    DroneState_RETURN   = 3,   // 返航
+    DroneState_LAND     = 4,   // 降落
+    DroneState_ZHENCHA  = 5,   // 侦察
+    DroneState_MIAOZHUN = 6    // 瞄准投放
 };
 
 // ── 无人机状态机 ──────────────────────────────
@@ -30,7 +32,10 @@ public:
 
     /// Web 远程命令入口（/setstat 路由回调）
     void UpdateState(const httplib::Request& req, httplib::Response& res);
+    void UpdateGoal(const httplib::Request& req, httplib::Response& res);
 
+
+    
     // ── 状态查询 ──────────────────────────
     DroneState GetState() const { return current_state_; }
     std::string GetStateName() const;
@@ -62,7 +67,8 @@ protected:
 
     /// 降落流程：切 LAND 模式 → 等待落地
     virtual void ExecuteLand();
-
+    
+    virtual void ExecuteWaiting();
     /// 侦察流程：按照航线扫描目标区域并识别
     virtual void ExecuteZhencha();
 
@@ -72,6 +78,8 @@ protected:
 private:
     DroneState current_state_;
     DroneState previous_state_;
+    
+    GoalPosVel Goal;
 
     /// 状态转移表：每个状态允许跳转到的目标状态集合
     std::map<DroneState, std::set<DroneState>> transition_table_;

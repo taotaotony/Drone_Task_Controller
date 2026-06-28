@@ -8,6 +8,12 @@
 #include "Drone.h"      // 确保 Drone 类完整定义
 #include "main.h"       // 提供 pos_pid_xy 等全局变量声明
 
+#define REQ_MAX_VEL_X        3        // 允许远程控制的最大X方向速度值(m/s)
+#define REQ_MAX_VEL_Y        3        // 允许远程控制的最大Y方向速度值(m/s)
+#define REQ_MAX_POS_X        10       // 允许远程控制的最大X方向坐标值(m)
+#define REQ_MAX_POS_Y        100      // 允许远程控制的最大Y方向坐标值(m)
+#define REQ_MAX_POS_Z        5        // 允许远程控制的最大Z方向坐标值(m)
+
 class WebServer {
 public:
     // 构造函数，绑定一个 Drone 实例的引用（必须保证 Drone 生命周期长于本对象）

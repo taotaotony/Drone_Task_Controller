@@ -55,28 +55,38 @@
 // ── 类型定义 ────────────────────────────────
 struct PIDController
 {
-    float kp, ki, kd;
-    float ans_error;
-    float previous_error;
+    double kp, ki, kd;
+    double ans_error;
+    double previous_error;
 };
 
-struct PX4_Position
+struct Position
 {
-    float x;
-    float y;
-    float z;
+    double x;
+    double y;
+    double z;
 };
 
-struct PX4_Velocity
+struct GoalPosVel  //存储目标位速信息
 {
-    float vx;
-    float vy;
-    float vz;
+    int  mode;
+    double px;
+    double py;
+    double pz;
+    double vx;
+    double vy;
+};
+
+struct Velocity
+{
+    double vx;
+    double vy;
+    double vz;
 };
 
 // ── 全局变量 extern 声明 ─────────────────────
-extern struct PX4_Position PX4_Position;
-extern struct PX4_Velocity PX4_Velocity;
+extern struct Position PX4_Position;
+extern struct Velocity PX4_Velocity;
 extern PIDController pos_pid_xy;
 extern double initial_yaw;
 

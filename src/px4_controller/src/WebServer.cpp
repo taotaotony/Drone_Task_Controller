@@ -91,6 +91,10 @@ void WebServer::run_server()
     svr.Get("/setstat", [this](const httplib::Request& req, httplib::Response& res) {
         drone_.UpdateState(req, res);   // 使用存储的 drone_ 引用
     });
+    
+    svr.Get("/setgoal", [this](const httplib::Request& req, httplib::Response& res) {
+        drone_.UpdateGoal(req, res);   // 使用存储的 drone_ 引用
+    });
 
     svr.Get("/", [](const httplib::Request& req, httplib::Response& res) {
         res.set_content("Hello! Welcome to Web PID Tuner.\n"

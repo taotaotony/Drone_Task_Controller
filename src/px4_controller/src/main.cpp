@@ -6,13 +6,13 @@
 #include "Drone.h"                  //无人机状态机相关函数
 
 // ── 全局变量定义 (main.h 中 extern 声明) ──────
-struct PX4_Position PX4_Position;
-struct PX4_Velocity PX4_Velocity;
+struct Position PX4_Position;              //当前飞机坐标，由回调函数更新
+struct Velocity PX4_Velocity;              //当前飞机速度，由回调函数更新
 PIDController pos_pid_xy;
 double initial_yaw;
 
-Drone drone;
-WebServer webserver(drone);
+Drone drone;                                   // 定义无人机状态机对象
+WebServer webserver(drone);                    // 定义网络服务器对象
 
 int main(int argc,char *argv[])
 {
@@ -34,6 +34,7 @@ int main(int argc,char *argv[])
     ros::Rate rate(30.0);
     
     webserver.start();
+    ConnectPX4();
     // ── 状态机主循环 ──────────────────────────
     while (ros::ok())
     {

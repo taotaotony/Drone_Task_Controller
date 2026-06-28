@@ -7,6 +7,7 @@
 extern ros::Time last_request;
 
 // ── 控制相关函数声明 ──────────────────────────
+void ConnectPX4();
 bool SetMode(std::string md);
 bool PX4_SetMode(std::string md);
 bool Arm();

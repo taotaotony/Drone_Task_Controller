@@ -59,7 +59,7 @@ bool Arm()
 // ── 位置/速度设定 ─────────────────────────────
 bool SetPoint(double x, double y, double z)
 {
-    ROS_INFO("发布BODY-Position: %f %f %f", x, y, z);
+    ROS_INFO("[SETPOINT] 发布BODY-Position: %f %f %f", x, y, z);
     px4_controller::position pos;
     tf2::Quaternion q;
     q.setRPY(0, 0, initial_yaw);
@@ -80,14 +80,14 @@ bool SetPoint(double x, double y, double z)
     }
     else
     {
-        ROS_INFO("Failed to Set Point!");
+        ROS_ERROR("[SETPOINT] Failed to Set Point!");
         return false;
     }
 }
 
 bool SetVel(double vx, double vy, double pz)
 {
-    ROS_INFO("发布BODY-Velocity: %f %f Height %f", vx, vy, pz);
+    ROS_INFO("[SETVEL] 发布BODY-Velocity: %f %f Height %f", vx, vy, pz);
     px4_controller::position vel;
     vel.request.mode = 1;
     tf2::Quaternion q;
@@ -107,7 +107,7 @@ bool SetVel(double vx, double vy, double pz)
     }
     else
     {
-        ROS_INFO("Failed to Set Velocity!");
+        ROS_ERROR("[SETVEL] Failed to Set Velocity!");
         return false;
     }
 }
@@ -131,8 +131,7 @@ bool CheckPosition(float x, float y, float z)
     return true;
 }
 
-// ── 起飞流程 ──────────────────────────────────
-void TakeOff(double waittime)
+void ConnectPX4()
 {
     while (ros::ok() && !current_state.connected)
     {
@@ -147,7 +146,11 @@ void TakeOff(double waittime)
     ros::Duration(1).sleep();
     ros::spinOnce();
     SetMode("OFFBOARD");
+}
 
+// ── 起飞流程 ──────────────────────────────────
+void TakeOff(double waittime)
+{
     if (abs(PX4_Position.z) <= 0.2 && abs(PX4_Position.x) <= 0.4 &&
         abs(PX4_Position.y) <= 0.4)
     {
