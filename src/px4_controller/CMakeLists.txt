@@ -19,7 +19,7 @@ include_directories(
 
 set(OpenCV_DIR /usr/local/lib/cmake/opencv4)
 find_package(OpenCV REQUIRED PATHS ${OpenCV_DIR} NO_DEFAULT_PATH)
-
+# find_package(JetsonGPIO REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
@@ -134,6 +134,7 @@ include_directories(
   include
   src
   ${catkin_INCLUDE_DIRS}
+  # ${JetsonGPIO_INCLUDE_DIRS}
   /usr/include/eigen3
 )
 
@@ -152,7 +153,7 @@ include_directories(
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(SetPoint src/SetPoint.cpp)
 add_executable(Main src/main.cpp src/WebServer.cpp src/communication.cpp src/control.cpp src/aim.cpp src/Drone.cpp)
-add_executable(Throw src/throw.cpp)
+# add_executable(Throw src/throw.cpp)
 add_executable(cvisual src/cvisual.cpp)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -164,7 +165,7 @@ add_executable(cvisual src/cvisual.cpp)
 ## same as for the library above
 add_dependencies(SetPoint ${PROJECT_NAME}_gencpp)
 add_dependencies(Main ${PROJECT_NAME}_gencpp)
-add_dependencies(Throw ${PROJECT_NAME}_gencpp)
+# add_dependencies(Throw ${PROJECT_NAME}_gencpp)
 ## Specify libraries to link a library or executable target against
 target_link_libraries(SetPoint
   ${catkin_LIBRARIES}
@@ -172,9 +173,10 @@ target_link_libraries(SetPoint
 target_link_libraries(Main
   ${catkin_LIBRARIES}
 )
-target_link_libraries(Throw
-  ${catkin_LIBRARIES}
-)
+# target_link_libraries(Throw
+#   ${catkin_LIBRARIES}
+#   ${JetsonGPIO_LIBRARIES}
+# )
 target_link_libraries(cvisual
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}
@@ -192,7 +194,8 @@ target_link_libraries(cvisual
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
-  scripts/Visual.py
+  scripts/servo_control_node.py
+  #scripts/Visual.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
