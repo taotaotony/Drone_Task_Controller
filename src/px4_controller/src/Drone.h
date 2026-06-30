@@ -33,7 +33,7 @@ public:
     /// Web 远程命令入口（/setstat 路由回调）
     void UpdateState(const httplib::Request& req, httplib::Response& res);
     void UpdateGoal(const httplib::Request& req, httplib::Response& res);
-
+    void Throw(const httplib::Request& req, httplib::Response& res);
 
     
     // ── 状态查询 ──────────────────────────
@@ -74,7 +74,8 @@ protected:
 
     /// 瞄准投放流程：视觉锁定目标桶 → PID 瞄准 → 投放
     virtual void ExecuteMiaozhun();
-
+    
+    
 private:
     DroneState current_state_;
     DroneState previous_state_;

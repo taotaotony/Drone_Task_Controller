@@ -33,7 +33,7 @@ private:
     // 路由处理函数
     void handle_pid(const httplib::Request& req, httplib::Response& res);
     void handle_cmd(const httplib::Request& req, httplib::Response& res);
-
+    void handle_throw(const httplib::Request& req, httplib::Response& res);
     // 服务器运行函数（在独立线程中执行）
     void run_server();
 

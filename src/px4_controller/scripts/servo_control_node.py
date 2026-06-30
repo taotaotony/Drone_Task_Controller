@@ -4,7 +4,7 @@ from px4_controller.srv import throwcmd, throwcmdResponse
 import Jetson.GPIO as GPIO
 from time import sleep
 
-output_pin = [15, 15]
+output_pin = [15, 33]
 servo1 = None  # pin 15
 servo2 = None  # pin 33
 OpenAngle  = 20

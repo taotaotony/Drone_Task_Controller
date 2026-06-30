@@ -34,8 +34,8 @@ int main(int argc,char *argv[])
     ros::Rate rate(30.0);
     
     webserver.start();
-    ros::Duration(5).sleep();
-    ThrowBottle(1);
+    //ros::Duration(5).sleep();
+    //ThrowBottle(1);
     ConnectPX4();
     // ── 状态机主循环 ──────────────────────────
     while (ros::ok())

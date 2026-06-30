@@ -96,6 +96,10 @@ void WebServer::run_server()
         drone_.UpdateGoal(req, res);   // 使用存储的 drone_ 引用
     });
 
+    svr.Get("/throw", [this](const httplib::Request& req, httplib::Response& res) {
+        drone_.Throw(req, res);   // 使用存储的 drone_ 引用
+    });
+
     svr.Get("/", [](const httplib::Request& req, httplib::Response& res) {
         res.set_content("Hello! Welcome to Web PID Tuner.\n"
                         "Use 'PID Tuner for QFOC.exe' to set PID Params!",

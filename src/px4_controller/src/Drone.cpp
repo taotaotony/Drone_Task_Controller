@@ -216,6 +216,42 @@ void Drone::UpdateGoal(const httplib::Request& req, httplib::Response& res)
     }
 }
 
+// Throw
+void Drone::Throw(const httplib::Request& req, httplib::Response& res)
+{
+    if (!req.has_param("id"))
+    {
+        res.set_content("Param ERROR! Missing 'id'", "text/plain");
+        res.status = 400; return;
+    }
+    try
+    {
+        int id = std::stoi(req.get_param_value("id"));
+        if(id == 1)
+        {
+            ThrowBottle(1);
+            res.set_content("Throw 1 OK", "text/plain");
+            res.status = 200; return;
+        }
+        else if(id == 1)
+        {
+            ThrowBottle(2);
+            res.set_content("Throw 2 OK", "text/plain");
+            res.status = 200; return;
+        }
+        else
+        {
+            res.set_content("Param ERROR! 'id' must be 1 or 2 ", "text/plain");
+            res.status = 400; return;
+        }
+    }
+    catch (...)
+    {
+        res.set_content("Param ERROR!", "text/plain");
+        res.status = 400;
+    }
+}
+
 // ── 核心分发器 ────────────────────────────────
 void Drone::HandleState()
 {
