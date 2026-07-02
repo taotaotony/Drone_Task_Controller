@@ -4,7 +4,7 @@
 #include <opencv2/cudawarping.hpp>
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
-#include <opencv2/core/cuda_stream_accessor.hpp>  // 新增：用于 Stream 包装
+#include <opencv2/core/cuda_stream_accessor.hpp>
 #include <NvInfer.h>
 #include <NvInferRuntime.h>
 #include <cuda_runtime_api.h>
@@ -29,19 +29,20 @@ class Logger : public nvinfer1::ILogger {
 const int INPUT_H = 640;
 const int INPUT_W = 640;
 const int NUM_ANCHORS = 8400;
-const int NUM_CLASSES = 80;        // 如果训练了自定义单类模型,建议改为1并重新导出engine
-const float CONF_THRESH = 0.4f;    // 初始置信度阈值
-const float IOU_THRESH = 0.45f;    // NMS IOU 阈值
+const int NUM_CLASSES = 80;
+const float CONF_THRESH = 0.4f;
+const float IOU_THRESH = 0.45f;
+const float CENTER_DIST_RATIO = 0.5f;   // 中心距离合并阈值(相对于较小框宽度)
 const int   NEW_W = 864;
 const int   NEW_H = 540;
 
 // ======================== 跟踪参数 ========================
-const int   TRACK_CONFIRM_FRAMES = 3;   // 连续检测到N帧才确认目标(减少误识别)
-const int   TRACK_MAX_LOST      = 10;   // 连续丢失M帧才删除跟踪器(抗丢帧)
-const float TRACK_IOU_MATCH     = 0.3f; // 跟踪匹配IOU阈值
-const float KF_PROCESS_NOISE    = 0.01f;// Kalman 过程噪声(越小越平滑)
-const float KF_MEASURE_NOISE    = 0.1f; // Kalman 测量噪声(越大越信任模型)
-const float CONF_HYSTERESIS_LOW = 0.25f;// 已跟踪目标使用更低的置信度阈值(滞后)
+const int   TRACK_CONFIRM_FRAMES = 3;
+const int   TRACK_MAX_LOST      = 10;
+const float TRACK_IOU_MATCH     = 0.3f;
+const float KF_PROCESS_NOISE    = 0.01f;
+const float KF_MEASURE_NOISE    = 0.1f;
+const float CONF_HYSTERESIS_LOW = 0.25f;
 
 // ======================== 数据结构 ========================
 struct Detection {
@@ -49,7 +50,44 @@ struct Detection {
     float cx() const { return (x1 + x2) * 0.5f; }
     float cy() const { return (y1 + y2) * 0.5f; }
     float area() const { return (x2 - x1) * (y2 - y1); }
+    float width() const { return x2 - x1; }
 };
+
+// ======================== 判定两个检测框是否为同一目标 ========================
+// 针对圆形桶目标：除了 IOU，还检查中心距离和中心包含关系
+inline bool is_same_target(const Detection& a, const Detection& b,
+                           float iou_thres, float center_dist_ratio) {
+    // 1. 计算 IOU
+    float xx1 = std::max(a.x1, b.x1);
+    float yy1 = std::max(a.y1, b.y1);
+    float xx2 = std::min(a.x2, b.x2);
+    float yy2 = std::min(a.y2, b.y2);
+    float iw = std::max(0.0f, xx2 - xx1);
+    float ih = std::max(0.0f, yy2 - yy1);
+    float inter = iw * ih;
+    float area_a = a.area();
+    float area_b = b.area();
+    float iou = inter / (area_a + area_b - inter + 1e-6f);
+
+    if (iou > iou_thres) return true;
+
+    // 2. 中心包含：如果 b 的中心落在 a 内部，视为同一目标
+    float bcx = b.cx(), bcy = b.cy();
+    if (bcx >= a.x1 && bcx <= a.x2 && bcy >= a.y1 && bcy <= a.y2) return true;
+
+    // 3. 反向：如果 a 的中心落在 b 内部
+    float acx = a.cx(), acy = a.cy();
+    if (acx >= b.x1 && acx <= b.x2 && acy >= b.y1 && acy <= b.y2) return true;
+
+    // 4. 中心距离：两框中心距离 < 较小框宽度 * ratio
+    float dx = acx - bcx;
+    float dy = acy - bcy;
+    float dist = std::sqrt(dx * dx + dy * dy);
+    float min_w = std::min(a.width(), b.width());
+    if (dist < min_w * center_dist_ratio) return true;
+
+    return false;
+}
 
 // ======================== Kalman 滤波器 (匀速运动模型) ========================
 class KalmanTracker {
@@ -60,9 +98,7 @@ public:
         : id_(track_id), state_(kUnconfirmed), lost_frames_(0),
           confirm_count_(1), total_frames_(1)
     {
-        // 状态: [x, y, w, h, vx, vy, vw, vh]  测量: [x, y, w, h]
         kf_.init(8, 4, 0, CV_32F);
-        // 状态转移矩阵 (匀速模型 dt=1)
         kf_.transitionMatrix = (cv::Mat_<float>(8, 8) <<
             1,0,0,0,1,0,0,0,
             0,1,0,0,0,1,0,0,
@@ -72,22 +108,18 @@ public:
             0,0,0,0,0,1,0,0,
             0,0,0,0,0,0,1,0,
             0,0,0,0,0,0,0,1);
-        // 测量矩阵
         kf_.measurementMatrix = (cv::Mat_<float>(4, 8) <<
             1,0,0,0,0,0,0,0,
             0,1,0,0,0,0,0,0,
             0,0,1,0,0,0,0,0,
             0,0,0,1,0,0,0,0);
-        // 过程噪声协方差
         cv::setIdentity(kf_.processNoiseCov, cv::Scalar::all(KF_PROCESS_NOISE));
-        // 测量噪声协方差
         cv::setIdentity(kf_.measurementNoiseCov, cv::Scalar::all(KF_MEASURE_NOISE));
-        // 后验误差协方差
         cv::setIdentity(kf_.errorCovPost, cv::Scalar::all(1.0));
 
         kf_.statePost.at<float>(0) = det.cx();
         kf_.statePost.at<float>(1) = det.cy();
-        kf_.statePost.at<float>(2) = det.x2 - det.x1;
+        kf_.statePost.at<float>(2) = det.width();
         kf_.statePost.at<float>(3) = det.y2 - det.y1;
         kf_.statePost.at<float>(4) = 0;
         kf_.statePost.at<float>(5) = 0;
@@ -105,7 +137,7 @@ public:
 
     void update(const Detection& det) {
         cv::Mat measurement = (cv::Mat_<float>(4, 1) <<
-            det.cx(), det.cy(), det.x2 - det.x1, det.y2 - det.y1);
+            det.cx(), det.cy(), det.width(), det.y2 - det.y1);
         kf_.correct(measurement);
 
         lost_frames_ = 0;
@@ -134,10 +166,8 @@ public:
     int lost_frames() const { return lost_frames_; }
     float confidence() const { return best_conf_; }
 
-    // 指数加权平滑后的置信度(用于输出)
     float smoothed_conf() const {
         float raw = best_conf_;
-        // 基于跟踪时长给予置信度加成(长期稳定跟踪的目标更可信)
         float bonus = std::min(0.15f, total_frames_ * 0.002f);
         return std::min(1.0f, raw + bonus);
     }
@@ -170,14 +200,11 @@ class SORTTracker {
 public:
     SORTTracker() : next_id_(0) {}
 
-    // 主更新函数: 输入检测结果,输出跟踪后的边界框
     std::vector<Detection> update(const std::vector<Detection>& detections, int img_w, int img_h) {
-        // Step 1: 对所有活跃跟踪器进行 Kalman 预测
         for (auto& track : tracks_) {
             track.predict();
         }
 
-        // Step 2: 计算 IOU 代价矩阵 (trackers × detections)
         std::vector<std::vector<float>> iou_matrix(tracks_.size(),
             std::vector<float>(detections.size(), 0.0f));
         for (size_t t = 0; t < tracks_.size(); ++t) {
@@ -187,12 +214,10 @@ public:
             }
         }
 
-        // Step 3: Hungarian 匹配 (贪心近似,因为目标是实时性)
         std::vector<int> track_match(tracks_.size(), -1);
         std::vector<bool> det_matched(detections.size(), false);
         greedy_match(iou_matrix, track_match, det_matched, TRACK_IOU_MATCH);
 
-        // Step 4: 更新匹配成功的跟踪器
         for (size_t t = 0; t < tracks_.size(); ++t) {
             if (track_match[t] >= 0) {
                 tracks_[t].update(detections[track_match[t]]);
@@ -201,20 +226,17 @@ public:
             }
         }
 
-        // Step 5: 为未匹配的检测创建新跟踪器
         for (size_t d = 0; d < detections.size(); ++d) {
             if (!det_matched[d]) {
                 tracks_.emplace_back(detections[d], next_id_++);
             }
         }
 
-        // Step 6: 删除已丢失的跟踪器
         tracks_.erase(
             std::remove_if(tracks_.begin(), tracks_.end(),
                 [](const KalmanTracker& t) { return t.is_lost(); }),
             tracks_.end());
 
-        // Step 7: 输出已确认的目标(使用 Kalman 平滑后的位置)
         std::vector<Detection> output;
         for (auto& track : tracks_) {
             if (track.is_confirmed()) {
@@ -224,7 +246,6 @@ public:
             }
         }
 
-        // 按置信度排序,限制最多3个(适配tbag消息格式)
         std::sort(output.begin(), output.end(),
             [](const Detection& a, const Detection& b) { return a.conf > b.conf; });
         if (output.size() > 3) output.resize(3);
@@ -241,8 +262,8 @@ private:
         float w = std::max(0.0f, xx2 - xx1);
         float h = std::max(0.0f, yy2 - yy1);
         float inter = w * h;
-        float area_a = (a.x2 - a.x1) * (a.y2 - a.y1);
-        float area_b = (b.x2 - b.x1) * (b.y2 - b.y1);
+        float area_a = a.area();
+        float area_b = b.area();
         float denom = area_a + area_b - inter;
         return (denom > 0.0f) ? inter / denom : 0.0f;
     }
@@ -252,7 +273,6 @@ private:
                       std::vector<bool>& det_matched,
                       float threshold)
     {
-        // 收集所有可能的 (track, det, cost) 三元组
         struct Match { int t, d; float c; };
         std::vector<Match> candidates;
         for (size_t t = 0; t < cost.size(); ++t)
@@ -260,7 +280,6 @@ private:
                 if (cost[t][d] < 1.0f - threshold)
                     candidates.push_back({(int)t, (int)d, cost[t][d]});
 
-        // 按代价升序排列(最小代价 = 最大IOU 优先)
         std::sort(candidates.begin(), candidates.end(),
             [](const Match& a, const Match& b) { return a.c < b.c; });
 
@@ -297,27 +316,27 @@ void capture_thread(cv::VideoCapture& cap) {
     }
 }
 
-// ======================== NMS (合并重叠检测) ========================
+// ======================== 改进版 NMS: IOU + 中心距离联合去重 ========================
+// 针对圆形桶目标光照变化导致的重复检测:
+//   1. 标准 IOU > 阈值 → 合并
+//   2. 任一框的中心落在对方框内 → 视为同一目标合并
+//   3. 中心距离 < 较小框宽度 * ratio → 合并
 void apply_nms(std::vector<Detection>& dets, float iou_thres) {
     if (dets.empty()) return;
+    // 按置信度降序排列
     std::sort(dets.begin(), dets.end(),
               [](const Detection& a, const Detection& b) { return a.conf > b.conf; });
+
     std::vector<Detection> result;
     while (!dets.empty()) {
+        // 保留置信度最高的框
         result.push_back(dets[0]);
         std::vector<Detection> remaining;
+
         for (size_t i = 1; i < dets.size(); ++i) {
-            float xx1 = std::max(dets[0].x1, dets[i].x1);
-            float yy1 = std::max(dets[0].y1, dets[i].y1);
-            float xx2 = std::min(dets[0].x2, dets[i].x2);
-            float yy2 = std::min(dets[0].y2, dets[i].y2);
-            float w = std::max(0.0f, xx2 - xx1);
-            float h = std::max(0.0f, yy2 - yy1);
-            float inter = w * h;
-            float area1 = (dets[0].x2 - dets[0].x1) * (dets[0].y2 - dets[0].y1);
-            float area2 = (dets[i].x2 - dets[i].x1) * (dets[i].y2 - dets[i].y1);
-            float iou = inter / (area1 + area2 - inter);
-            if (iou <= iou_thres) remaining.push_back(dets[i]);
+            if (!is_same_target(dets[0], dets[i], iou_thres, CENTER_DIST_RATIO)) {
+                remaining.push_back(dets[i]);
+            }
         }
         dets = remaining;
     }
@@ -341,7 +360,6 @@ std::vector<Detection> parse_yolov8(float* output, int img_width, int img_height
         float x2 = x_center + width / 2.0f;
         float y2 = y_center + height / 2.0f;
 
-        // 取所有类别中的最大置信度
         float max_conf = 0.0f;
         for (int c = 0; c < NUM_CLASSES; ++c) {
             float score = output[(4 + c) * NUM_ANCHORS + i];
@@ -360,27 +378,21 @@ std::vector<Detection> parse_yolov8(float* output, int img_width, int img_height
     }
 
     apply_nms(raw_dets, IOU_THRESH);
-    return raw_dets;  // 不再限3个,交给跟踪器管理
+    return raw_dets;
 }
 
 // ======================== CUDA 加速预处理 ========================
-// 将 BGR Mat 转换为 CHW float 并归一化到 [0,1]
 void preprocess_cuda(const cv::Mat& frame, float* d_input, cudaStream_t stream) {
-    // 将原生 CUDA 流包装为 OpenCV 可用的 Stream 对象
     cv::cuda::Stream cv_stream = cv::cuda::StreamAccessor::wrapStream(stream);
 
     cv::cuda::GpuMat gpu_frame, gpu_rgb, gpu_resized, gpu_float;
-    gpu_frame.upload(frame, cv_stream);                     // 上传也使用同一个流（可选，但保持异步）
+    gpu_frame.upload(frame, cv_stream);
 
-    // BGR -> RGB
     cv::cuda::cvtColor(gpu_frame, gpu_rgb, cv::COLOR_BGR2RGB, 0, cv_stream);
-    // Resize 640x640
     cv::cuda::resize(gpu_rgb, gpu_resized, cv::Size(INPUT_W, INPUT_H), 0, 0,
                      cv::INTER_LINEAR, cv_stream);
-    // 转 float 并归一化
     gpu_resized.convertTo(gpu_float, CV_32F, 1.0 / 255.0, cv_stream);
 
-    // 分离通道并拷贝为 CHW 布局到 TensorRT 输入缓冲区
     std::vector<cv::cuda::GpuMat> channels(3);
     for (int c = 0; c < 3; ++c) {
         channels[c] = cv::cuda::GpuMat(INPUT_H, INPUT_W, CV_32F,
@@ -388,7 +400,6 @@ void preprocess_cuda(const cv::Mat& frame, float* d_input, cudaStream_t stream) 
     }
     cv::cuda::split(gpu_float, channels, cv_stream);
 
-    // 等待该流上的所有操作完成
     cv_stream.waitForCompletion();
 }
 
@@ -433,14 +444,12 @@ int main(int argc, char** argv) {
     cudaMalloc(&buffers[input_idx], input_size);
     cudaMalloc(&buffers[output_idx], output_size);
 
-    // 创建 CUDA stream 用于异步预处理
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
-    // 分配 CPU 输出缓冲区
     std::vector<float> output_cpu(output_size / sizeof(float));
 
-    // ---------- 2. 打开摄像头 (GStreamer MJPG 120fps) ----------
+    // ---------- 2. 打开摄像头 (GStreamer) ----------
     cv::VideoCapture cap;
     std::string gst_pipe =
         "v4l2src device=/dev/video0 ! "
@@ -505,7 +514,6 @@ int main(int argc, char** argv) {
             display_frame = frame.clone();
             int w = display_frame.cols, h = display_frame.rows;
 
-            // 坐标轴
             cv::line(display_frame, cv::Point(0,0), cv::Point(w,0), cv::Scalar(255,0,0), 2);
             cv::line(display_frame, cv::Point(0,0), cv::Point(0,h), cv::Scalar(0,255,0), 2);
             cv::putText(display_frame, "X", cv::Point(w-20,20),
@@ -513,7 +521,6 @@ int main(int argc, char** argv) {
             cv::putText(display_frame, "Y", cv::Point(20,h-20),
                         cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,255,0), 2);
 
-            // 绘制跟踪目标(绿色实线) 和 原始检测(红色虚线,用于调试对比)
             for (size_t i = 0; i < tracked.size(); ++i) {
                 const Detection& d = tracked[i];
                 cv::rectangle(display_frame, cv::Point(d.x1, d.y1), cv::Point(d.x2, d.y2),
@@ -532,7 +539,6 @@ int main(int argc, char** argv) {
                               cv::Scalar(0, 0, 255), 1, cv::LINE_AA);
             }
 
-            // FPS计算
             double now = ros::Time::now().toSec();
             double elapsed = now - prev_time;
             if (elapsed > 0) {
