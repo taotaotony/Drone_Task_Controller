@@ -80,7 +80,7 @@ int main( int argc, char *argv[] )
     ros::Time::init();
     ros::NodeHandle nh;
     ros::ServiceServer server = nh.advertiseService("ThrowCmd",ThrowBottle);
-    ROS_INFO("投放服务成功启动!");
+    ROS_INFO("[Throw] 投放服务成功启动!");
     ros::Rate loop_rate(10);
 
     // 设置为BOARD模式（物理引脚编号）

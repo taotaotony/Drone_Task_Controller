@@ -6,7 +6,7 @@ ros::Time last_request;
 // ── 模式设置 ──────────────────────────────────
 bool SetMode(std::string md)
 {
-    ROS_INFO("Attempt to set %s mode", md.c_str());
+    ROS_INFO("[PX4] 尝试设置 %s 模式", md.c_str());
     while (current_state.mode != md)
     {
         if (ros::Time::now() - last_request > ros::Duration(1.0))
@@ -16,7 +16,7 @@ bool SetMode(std::string md)
         }
         ros::spinOnce();
     }
-    ROS_INFO("Set %s mode Successfully", md.c_str());
+    ROS_INFO_STREAM("\033[32m" << "[PX4] 成功设置模式" << md.c_str() << "\033[0m");
     return true;
 }
 
@@ -46,13 +46,13 @@ bool Arm()
             ROS_INFO("Attempt to Arm");
             if (arming_client.call(arm_cmd) && arm_cmd.response.success)
             {
-                ROS_INFO("Vehicle armed");
+                ROS_INFO_STREAM("\033[32m" << "[PX4] Vehicle Armed!" << "\033[0m");
                 ros::spinOnce();
             }
             last_request = ros::Time::now();
         }
     }
-    ROS_INFO("Arm Successfully");
+    ROS_INFO_STREAM("\033[32m" << "[PX4] Arm Successfully" << "\033[0m");
     return true;
 }
 
@@ -135,7 +135,7 @@ void ConnectPX4()
 {
     while (ros::ok() && !current_state.connected)
     {
-        ROS_INFO("Attempt To Connect PX4");
+        ROS_INFO("[PX4] Attempt To Connect PX4");
         ros::spinOnce();
         ros::Duration(1.0).sleep();
     }
@@ -155,26 +155,26 @@ void TakeOff(double waittime)
     if (abs(PX4_Position.z) <= 0.2 && abs(PX4_Position.x) <= 0.4 &&
         abs(PX4_Position.y) <= 0.4)
     {
-        ROS_WARN("起飞偏差较小,X:%.2f Y:%.2f Z:%.2f",
+        ROS_WARN("[PX4] 起飞偏差较小,X:%.2f Y:%.2f Z:%.2f",
                  PX4_Position.x, PX4_Position.y, PX4_Position.z);
-        ROS_WARN("2秒后起飞");
+        ROS_WARN("[PX4] 2秒后起飞");
         ros::Duration(2.0).sleep();
         Arm();
         ros::spinOnce();
     }
     else if (abs(PX4_Position.x) <= 0.8 && abs(PX4_Position.y) <= 0.8)
     {
-        ROS_WARN("初始位置偏差较大，慎飞,X:%.2f Y:%.2f Z:%.2f",
+        ROS_WARN("[PX4] 初始位置偏差较大，慎飞,X:%.2f Y:%.2f Z:%.2f",
                  PX4_Position.x, PX4_Position.y, PX4_Position.z);
-        ROS_WARN("5秒后起飞");
+        ROS_WARN("[PX4] 5秒后起飞");
         ros::Duration(5.0).sleep();
         Arm();
         ros::spinOnce();
     }
     else
     {
-        ROS_ERROR("偏差过大，禁止飞行，重启飞控!!!!!");
-        ROS_WARN("如不采取行动将在10s后起飞");
+        ROS_ERROR("[PX4] 偏差过大，禁止飞行，重启飞控!!!!!");
+        ROS_WARN("[PX4] 如不采取行动将在10s后起飞");
         ros::Duration(10).sleep();
         Arm();
     }
@@ -188,7 +188,7 @@ void ShowPosition(int delay)
     while (delay)
     {
         ros::spinOnce();
-        ROS_INFO("Current Position %f %f %f",
+        ROS_INFO("[PX4] Current Position %f %f %f",
                  PX4_Position.x, PX4_Position.y, PX4_Position.z);
         ros::Duration(1.0).sleep();
         delay--;
@@ -205,7 +205,7 @@ bool ThrowBottle(int cmd)
     }
     else
     {
-        ROS_ERROR("Failed to Throw!");
+        ROS_ERROR("[Throw] Failed to Throw!");
         return false;
     }
 }
@@ -218,7 +218,7 @@ void Detect()
     SetVel(0, 4, DetectHeight);
     ros::Duration(5.5).sleep();
     SetPoint(0, TakeofftoDetect, DetectHeight);
-    ROS_INFO("侦察开始");
+    ROS_INFO_STREAM("\033[32m" << "[Detect] 侦察开始" << "\033[0m");
     ShowPosition(5);
     SetVel(-0.5, 0, DetectHeight);
     ShowPosition(6);
@@ -230,13 +230,13 @@ void Detect()
     ShowPosition(6);
     SetPoint(0, TakeofftoDetect, DetectHeight);
     ShowPosition(2);
-    ROS_INFO("侦察结束");
+    ROS_INFO_STREAM("\033[32m" << "[Detect] 侦察结束" << "\033[0m");
 }
 
 // ── 返航 ──────────────────────────────────────
 void GoHome()
 {
-    ROS_INFO("返航");
+    ROS_INFO_STREAM("\033[32m" << "[PX4] 返航" << "\033[0m");
     SetVel(0, -5, DetectHeight);
     ShowPosition(11);
     SetPoint(0, 0, DetectHeight);
@@ -247,7 +247,7 @@ void GoHome()
 void Land()
 {
     SetMode("AUTO.LAND");
-    ROS_INFO("LANDING.....");
+    ROS_INFO_STREAM("\033[32m" << "[PX4] LANDING....." << "\033[0m");
     ros::Duration(10).sleep();
 }
 

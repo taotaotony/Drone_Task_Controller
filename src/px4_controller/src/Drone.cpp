@@ -271,7 +271,7 @@ void Drone::HandleState()
 // ── Entry / Exit 钩子 ─────────────────────────
 void Drone::OnEnterState(DroneState state)
 {
-    ROS_INFO("[Drone] >>> 进入: %s", StateName(state).c_str());
+    ROS_INFO_STREAM("\033[32m" << "[Drone] >>> 进入: " << StateName(state) << "\033[0m");
     if(state == DroneState_GOAL) 
     {
         ros::spinOnce();
@@ -284,7 +284,7 @@ void Drone::OnEnterState(DroneState state)
 
 void Drone::OnExitState(DroneState state)
 {
-    ROS_INFO("[Drone] <<< 退出: %s", StateName(state).c_str());
+    ROS_INFO_STREAM("\033[32m" << "[Drone] <<< 退出: " << StateName(state) << "\033[0m");
 }
 
 void Drone::ExecuteTakeOff()
@@ -338,7 +338,7 @@ void Drone::ExecuteMiaozhun()
 
 void Drone::setgamemode(bool InGame)
 {
-    if(InGame) ROS_WARN("[Drone] 比赛模式启动,状态机将自动跳转,请留意各坐标位置！！！");
-    else ROS_INFO("[Drone] 测试模式启动,请使用上位机控制飞机状态...");
+    if(InGame) ROS_WARN_STREAM("\033[32m" << "[Drone] 比赛模式启动,状态机将自动跳转,请留意各坐标位置！！！" << "\033[0m");
+    else ROS_INFO_STREAM("\033[32m" << "[Drone] 测试模式启动,请使用上位机控制飞机状态..." << "\033[0m");
     ingame = InGame;
 }

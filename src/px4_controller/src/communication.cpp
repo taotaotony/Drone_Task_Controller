@@ -83,10 +83,9 @@ void imu_cb(const sensor_msgs::Imu::ConstPtr& msg)
         tf2::Matrix3x3 mat(q);
         double roll, pitch, yaw;
         mat.getRPY(roll, pitch, yaw);
-
         initial_yaw = yaw;
         yaw_initialized = true;
-        ROS_INFO("Initial Yaw: %.2f radians", initial_yaw);
+        ROS_INFO_STREAM("\033[32m" << "[IMU] Initial Yaw: " << initial_yaw << " radians" << "\033[0m");
     }
 }
 
@@ -100,5 +99,5 @@ void vel_cb(const geometry_msgs::TwistStamped::ConstPtr& msg)
 
 void lidar_cb(const sensor_msgs::Range::ConstPtr& msg)
 {
-    ROS_INFO("距离: %.2f 米", msg->range);
+    ROS_INFO("[Lidar] 距离: %.4f 米", msg->range);
 }
