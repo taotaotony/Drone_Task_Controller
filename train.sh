@@ -1,1 +1,1 @@
-roslaunch px4_controller game.launch
+roslaunch px4_controller train.launch
