@@ -33,6 +33,14 @@ void pos_cb(const geometry_msgs::PoseStamped::ConstPtr& msg)
     PX4_Position.x = bodyX;
     PX4_Position.y = bodyY;
     PX4_Position.z = msg->pose.position.z;
+    // 电子围栏功能
+    if(PX4_Position.x > Electronic_Fence_X_MAX || PX4_Position.x < Electronic_Fence_X_Min ||
+       PX4_Position.y > Electronic_Fence_Y_MAX || PX4_Position.y < Electronic_Fence_Y_Min)
+    {
+        ROS_ERROR("[PX4] 电子围栏触发，飞机即将悬停...");
+        SetPoint(PX4_Position.x, PX4_Position.y, PX4_Position.z);
+        drone.RequestTransition(DroneState_WAITING);
+    }
 }
 
 void visual_cb(const px4_controller::tbag::ConstPtr& msg)

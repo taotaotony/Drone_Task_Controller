@@ -23,6 +23,12 @@
 #include <httplib.h>
 
 // ── 宏定义 ──────────────────────────────────
+#define Electronic_Fence_X_MAX 5.0            //电子围栏 X方向最大坐标，下同
+#define Electronic_Fence_X_Min -5.0           
+#define Electronic_Fence_Y_MAX 70.0
+#define Electronic_Fence_Y_Min -1.0
+
+
 #define TakeofftoThrow 32.5  // 起飞点到投放中心的距离 (32.5m)
 #define TakeofftoDetect 57.5 // 起飞点到侦察中心的距离 (57.5m)
 #define Throw1_X 660         // 1号舵机能投放进的像素x
