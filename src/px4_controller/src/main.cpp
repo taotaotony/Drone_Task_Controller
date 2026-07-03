@@ -20,6 +20,12 @@ int main(int argc,char *argv[])
     setlocale(LC_ALL,"");
     ros::Time::init();
     ros::NodeHandle nh;
+
+    /*>>>外部参数<<<*/
+    bool InGame;
+    nh.param<bool>("InGame", InGame, true);   // 比赛模式，默认启动
+    drone.setgamemode(InGame);
+
     /*>>>全局变量赋值<<<*/
     arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");                             // 解锁服务通信
     set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");                                 // 切换模式服务通信
@@ -30,6 +36,7 @@ int main(int argc,char *argv[])
     pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose",10,pos_cb);
     imu_sub = nh.subscribe<sensor_msgs::Imu>("/mavros/imu/data",10,imu_cb);
     vel_sub = nh.subscribe<geometry_msgs::TwistStamped>("/mavros/local_position/velocity_local",10,vel_cb);
+    lidar_sub = nh.subscribe<sensor_msgs::Range>("/mavros/distance_sensor/hrlv_ez4_pub",10,lidar_cb);
     last_request=ros::Time::now();
     ros::Rate rate(30.0);
     

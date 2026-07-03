@@ -14,6 +14,7 @@
 #include <sstream>
 #include <geometry_msgs/PoseStamped.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/Range.h>
 #include <geometry_msgs/TwistStamped.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>

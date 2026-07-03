@@ -13,6 +13,7 @@ extern ros::Subscriber visual_sub;
 extern ros::Subscriber pos_sub;
 extern ros::Subscriber vel_sub;
 extern ros::Subscriber imu_sub;
+extern ros::Subscriber lidar_sub;
 
 extern mavros_msgs::State current_state;
 extern sensor_msgs::Imu imu_msg;
@@ -62,5 +63,6 @@ void pos_cb(const geometry_msgs::PoseStamped::ConstPtr& msg);
 void visual_cb(const px4_controller::tbag::ConstPtr& msg);
 void imu_cb(const sensor_msgs::Imu::ConstPtr& msg);
 void vel_cb(const geometry_msgs::TwistStamped::ConstPtr& msg);
+void lidar_cb(const sensor_msgs::Range::ConstPtr& msg);
 
 #endif // __COMMUNICATION_H

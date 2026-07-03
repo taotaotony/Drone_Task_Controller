@@ -32,7 +32,7 @@ const int NUM_ANCHORS = 8400;
 const int NUM_CLASSES = 80;
 const float CONF_THRESH = 0.4f;
 const float IOU_THRESH = 0.45f;
-const float CENTER_DIST_RATIO = 0.5f;   // 中心距离合并阈值(相对于较小框宽度)
+const float CENTER_DIST_RATIO = 50.0f;   // 中心距离合并阈值(相对于较小框宽度)
 const int   NEW_W = 864;
 const int   NEW_H = 540;
 

@@ -11,6 +11,7 @@ ros::Subscriber visual_sub;
 ros::Subscriber pos_sub;
 ros::Subscriber vel_sub;
 ros::Subscriber imu_sub;
+ros::Subscriber lidar_sub;
 
 mavros_msgs::State current_state;
 sensor_msgs::Imu imu_msg;
@@ -95,4 +96,9 @@ void vel_cb(const geometry_msgs::TwistStamped::ConstPtr& msg)
     PX4_Velocity.vx = vel_msg.twist.linear.x;
     PX4_Velocity.vy = vel_msg.twist.linear.y;
     PX4_Velocity.vz = vel_msg.twist.linear.z;
+}
+
+void lidar_cb(const sensor_msgs::Range::ConstPtr& msg)
+{
+    ROS_INFO("距离: %.2f 米", msg->range);
 }
