@@ -1,10 +1,13 @@
 #include <ros/ros.h>
+#include <ros/package.h>
 #include <px4_controller/tbag.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/cudawarping.hpp>
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/core/cuda_stream_accessor.hpp>
+
+#include "calibration.h"
 #include <NvInfer.h>
 #include <NvInferRuntime.h>
 #include <cuda_runtime_api.h>
@@ -17,6 +20,10 @@
 #include <cmath>
 #include <limits>
 
+// 标定参数读取器
+HeightCalibration calib;
+int current_lidar = 0;
+ros::Subscriber lidar_sub; // 订阅激光雷达数据
 // ======================== TensorRT Logger ========================
 class Logger : public nvinfer1::ILogger {
     void log(Severity severity, const char* msg) noexcept override {
@@ -33,8 +40,8 @@ const int NUM_CLASSES = 80;
 const float CONF_THRESH = 0.4f;
 const float IOU_THRESH = 0.45f;
 const float CENTER_DIST_RATIO = 50.0f;   // 中心距离合并阈值(相对于较小框宽度)
-const int   NEW_W = 864;
-const int   NEW_H = 540;
+const int   NEW_W = 1200;//864;
+const int   NEW_H = 750;//540;
 
 // ======================== 跟踪参数 ========================
 const int   TRACK_CONFIRM_FRAMES = 3;
@@ -44,6 +51,7 @@ const float KF_PROCESS_NOISE    = 0.01f;
 const float KF_MEASURE_NOISE    = 0.1f;
 const float CONF_HYSTERESIS_LOW = 0.25f;
 
+extern HeightCalibration calib;
 // ======================== 数据结构 ========================
 struct Detection {
     float x1, y1, x2, y2, conf;
@@ -402,13 +410,31 @@ void preprocess_cuda(const cv::Mat& frame, float* d_input, cudaStream_t stream) 
 
     cv_stream.waitForCompletion();
 }
+//雷达回调函数
+void lidar_cb(const sensor_msgs::Range::ConstPtr& msg)
+{
+    current_lidar = msg->range*100; // 将米转换为厘米
+    return;
+}
 
 // ======================== 主函数 ========================
 int main(int argc, char** argv) {
     ros::init(argc, argv, "visual_node");
+    setlocale(LC_ALL,"");
     ros::NodeHandle nh;
     ros::Publisher pub = nh.advertise<px4_controller::tbag>("IR", 10);
-
+    // 读取标定参数(非必要)
+    std::string package_path = ros::package::getPath("px4_controller");
+    std::string file_path = package_path + "/config/calibration_data.txt";
+    if (loadCalibrationFromFile(file_path, calib)) 
+    {                            
+        ROS_INFO_STREAM("\033[32m" << "[Visual] [Calibration] 标定参数读取成功!" << "\033[0m");
+    }
+    else
+    {
+        ROS_ERROR("[Visual] [Calibration] 标定参数读取错误!!!");
+    }
+    lidar_sub = nh.subscribe<sensor_msgs::Range>("/mavros/distance_sensor/hrlv_ez4_pub",10,lidar_cb);
     // ---------- 1. 加载 TensorRT 引擎 ----------
     std::string engine_path = "/home/ros/Desktop/VisionTest/best20250731.engine";
     std::ifstream engine_file(engine_path, std::ios::binary);
@@ -567,6 +593,13 @@ int main(int argc, char** argv) {
                             cv::FONT_HERSHEY_SIMPLEX, 1.5, cv::Scalar(0, 0, 255), 3);
             }
 
+            //>>>>将标定得到的落点花在画面内(非必要)<<<<
+            auto result = calib.query(current_lidar);
+            cv::Point2f cv_p1 = result.first;   // 类型已经是 cv::Point2f
+            cv::Point2f cv_p2 = result.second;
+            circle(display_frame, cv::Point((int)cv_p1.x, (int)cv_p1.y), 6, cv::Scalar(0,255,0), -1);
+            circle(display_frame, cv::Point((int)cv_p2.x, (int)cv_p2.y), 6, cv::Scalar(255,0,0), -1);
+            //>>>>>>>>>>>><<<<<<<<<<
             cv::Mat display_small;
             cv::resize(display_frame, display_small, cv::Size(NEW_W, NEW_H));
             cv::imshow("Detection", display_small);

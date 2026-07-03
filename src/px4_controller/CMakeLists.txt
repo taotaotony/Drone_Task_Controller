@@ -152,9 +152,9 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(SetPoint src/SetPoint.cpp)
-add_executable(Main src/main.cpp src/WebServer.cpp src/communication.cpp src/control.cpp src/aim.cpp src/Drone.cpp)
+add_executable(Main src/main.cpp src/WebServer.cpp src/communication.cpp src/control.cpp src/aim.cpp src/Drone.cpp src/calibration.cpp)
 # add_executable(Throw src/throw.cpp)
-add_executable(cvisual src/cvisual.cpp)
+add_executable(cvisual src/cvisual.cpp src/calibration.cpp)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -172,6 +172,7 @@ target_link_libraries(SetPoint
 )
 target_link_libraries(Main
   ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}
 )
 # target_link_libraries(Throw
 #   ${catkin_LIBRARIES}

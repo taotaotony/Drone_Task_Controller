@@ -1,8 +1,10 @@
 // aim.cpp — 瞄准、识别与投放逻辑实现
 #include "aim.h"
 #include "communication.h"
-
+#include "calibration.h"
 ros::Time time_guard;
+
+extern HeightCalibration calib;   // 标定参数读取器
 
 // ── 两点间欧氏距离 ────────────────────────────
 double distance(const BarrelPosition& a, const BarrelPosition& b)

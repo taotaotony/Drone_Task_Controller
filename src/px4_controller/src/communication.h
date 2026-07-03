@@ -2,6 +2,7 @@
 #define __COMMUNICATION_H
 
 #include "main.h"
+#include "Drone.h"
 
 // ── ROS 通信对象 (extern 声明) ────────────────
 extern ros::ServiceClient arming_client;
@@ -20,6 +21,7 @@ extern sensor_msgs::Imu imu_msg;
 extern bool yaw_initialized;
 extern geometry_msgs::TwistStamped vel_msg;
 
+extern Drone drone;
 // ── 视觉数据结构 ──────────────────────────────
 struct VisualData
 {

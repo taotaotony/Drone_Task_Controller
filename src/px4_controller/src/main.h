@@ -2,6 +2,7 @@
 #define __main_H
 
 #include <ros/ros.h>
+#include <ros/package.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/CommandBool.h>
 #include <string>
@@ -23,6 +24,7 @@
 #include <httplib.h>
 
 // ── 宏定义 ──────────────────────────────────
+#define Electronic_Fence_ENABLE false         //
 #define Electronic_Fence_X_MAX 5.0            //电子围栏 X方向最大坐标，下同
 #define Electronic_Fence_X_Min -5.0           
 #define Electronic_Fence_Y_MAX 70.0

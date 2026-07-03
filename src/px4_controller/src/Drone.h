@@ -47,6 +47,9 @@ public:
 
     // 设置程序模式，决定状态机是否自动跳转
     void setgamemode(bool InGame);
+
+    void update_Lidar(int lidar_data);   //更新雷达数据
+    int get_Lidar();                     //获取当前雷达数据
 protected:
     // ════════════════════════════════════════
     //  各状态执行函数（空壳，需手动填充逻辑）
@@ -82,9 +85,9 @@ private:
     DroneState current_state_;
     DroneState previous_state_;
     
-    GoalPosVel Goal;    // 目标航点
-    bool ingame;        // 比赛模式标志，true=比赛模式，false=练习模式
-
+    GoalPosVel Goal;      // 目标航点
+    bool ingame;          // 比赛模式标志，true=比赛模式，false=练习模式
+    int lidar_height;     //雷达返回的高度(已转换成cm)
     /// 状态转移表：每个状态允许跳转到的目标状态集合
     std::map<DroneState, std::set<DroneState>> transition_table_;
 

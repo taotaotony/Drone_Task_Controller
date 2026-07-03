@@ -30,7 +30,7 @@ Drone::Drone()
     , previous_state_(DroneState_NONE)
 {
     BuildTransitionTable();
-    ROS_INFO("[Drone] StateMachine Initialized, Current State: %s", StateName(current_state_).c_str());
+    ROS_INFO_STREAM("\033[32m" << "[Drone] StateMachine Initialized, Current State: " << StateName(current_state_) << "\033[0m");
 }
 
 std::string Drone::GetStateName() const { return StateName(current_state_); }
@@ -341,4 +341,14 @@ void Drone::setgamemode(bool InGame)
     if(InGame) ROS_WARN_STREAM("\033[32m" << "[Drone] 比赛模式启动,状态机将自动跳转,请留意各坐标位置！！！" << "\033[0m");
     else ROS_INFO_STREAM("\033[32m" << "[Drone] 测试模式启动,请使用上位机控制飞机状态..." << "\033[0m");
     ingame = InGame;
+}
+
+void Drone::update_Lidar(int lidar_data)
+{
+    lidar_height = (int)lidar_data*100;  //cm
+}
+
+int Drone::get_Lidar()
+{
+    return lidar_height;
 }
