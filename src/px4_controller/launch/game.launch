@@ -1,4 +1,6 @@
 <launch>
+   <param name="InGame" type="bool" value="true"/>
+
    <!-- Node -->
    <node pkg="px4_controller" type="SetPoint" name="SetPoint" output="screen"/>
    <node pkg="px4_controller" type="cvisual" name="cvisual" output="screen"/>

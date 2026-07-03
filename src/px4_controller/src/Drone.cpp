@@ -290,7 +290,8 @@ void Drone::OnExitState(DroneState state)
 void Drone::ExecuteTakeOff()
 {
     TakeOff(5);
-    RequestTransition(DroneState_WAITING);
+    if(ingame) {RequestTransition(DroneState_MIAOZHUN);}    
+    else {RequestTransition(DroneState_WAITING);}           
 }
 
 void Drone::ExecuteGoal()
@@ -324,11 +325,20 @@ void Drone::ExecuteLand()
 void Drone::ExecuteZhencha()
 {
     Detect();
-    RequestTransition(DroneState_RETURN);
+    if(ingame) {RequestTransition(DroneState_RETURN);}    
+    else {RequestTransition(DroneState_WAITING);}    
 }
 
 void Drone::ExecuteMiaozhun()
 {
     Locating();
-    //RequestTransition(DroneState_ZHENCHA);
+    if(ingame) {RequestTransition(DroneState_ZHENCHA);}    
+    else {RequestTransition(DroneState_WAITING);}    
+}
+
+void Drone::setgamemode(bool InGame)
+{
+    if(InGame) ROS_WARN("[Drone] 比赛模式启动,状态机将自动跳转,请留意各坐标位置！！！");
+    else ROS_INFO("[Drone] 测试模式启动,请使用上位机控制飞机状态...");
+    ingame = InGame;
 }

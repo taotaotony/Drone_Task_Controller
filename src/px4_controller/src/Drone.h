@@ -45,6 +45,8 @@ public:
     /// 请求状态跳转（带合法性验证），返回是否成功
     bool RequestTransition(DroneState new_state);
 
+    // 设置程序模式，决定状态机是否自动跳转
+    void setgamemode(bool InGame);
 protected:
     // ════════════════════════════════════════
     //  各状态执行函数（空壳，需手动填充逻辑）
@@ -80,7 +82,8 @@ private:
     DroneState current_state_;
     DroneState previous_state_;
     
-    GoalPosVel Goal;
+    GoalPosVel Goal;    // 目标航点
+    bool ingame;        // 比赛模式标志，true=比赛模式，false=练习模式
 
     /// 状态转移表：每个状态允许跳转到的目标状态集合
     std::map<DroneState, std::set<DroneState>> transition_table_;

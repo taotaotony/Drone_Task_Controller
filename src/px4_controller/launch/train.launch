@@ -1,0 +1,10 @@
+<launch>
+   <param name="InGame" type="bool" value="false"/>
+
+   <!-- Node -->
+   <node pkg="px4_controller" type="SetPoint" name="SetPoint" output="screen"/>
+   <node pkg="px4_controller" type="cvisual" name="cvisual" output="screen"/>
+   <!-- <node pkg="px4_controller" type="Throw" name="throw" output="screen"/> -->
+   <node pkg="px4_controller" type="servo_control_node.py" name="servo_control" output="screen"/>
+   <node pkg="px4_controller" type="Main" name="main" output="screen"/>
+</launch>
