@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+import threading
+from time import sleep
+
 import rospy
 from px4_controller.srv import throwcmd, throwcmdResponse
 
@@ -8,11 +11,26 @@ except ImportError:
     from smbus import SMBus
 
 
-DEFAULT_I2C_BUS = 1
-DEFAULT_I2C_ADDRESS = 0x08
-DEFAULT_THROW_COMMAND = 0x01
+MODE1 = 0x00
+MODE2 = 0x01
+LED0_ON_L = 0x06
+PRESCALE = 0xFE
 
-i2c_controller = None
+MODE1_RESTART = 0x80
+MODE1_SLEEP = 0x10
+MODE1_AUTO_INCREMENT = 0x20
+MODE2_OUTDRV = 0x04
+
+DEFAULT_I2C_BUS = 1
+DEFAULT_PCA9685_ADDRESS = 0x40
+DEFAULT_FREQUENCY_HZ = 50
+DEFAULT_MIN_PULSE_US = 500
+DEFAULT_MAX_PULSE_US = 2500
+DEFAULT_OPEN_ANGLE = 20
+DEFAULT_CLOSE_ANGLE = 120
+DEFAULT_ACTION_DELAY_SEC = 1.0
+
+servo_controller = None
 
 
 def parse_int_param(value):
@@ -21,74 +39,141 @@ def parse_int_param(value):
     return int(value)
 
 
-class I2CThrowController:
+def clamp(value, min_value, max_value):
+    return max(min_value, min(max_value, value))
+
+
+class PCA9685ServoController:
     def __init__(self):
         self.bus_id = parse_int_param(rospy.get_param("~i2c_bus", DEFAULT_I2C_BUS))
         self.address = parse_int_param(
-            rospy.get_param("~i2c_address", DEFAULT_I2C_ADDRESS)
+            rospy.get_param("~i2c_address", DEFAULT_PCA9685_ADDRESS)
         )
-        self.throw_command = parse_int_param(
-            rospy.get_param("~throw_command", DEFAULT_THROW_COMMAND)
+        self.frequency_hz = int(rospy.get_param("~frequency_hz", DEFAULT_FREQUENCY_HZ))
+        self.min_pulse_us = int(
+            rospy.get_param("~min_pulse_us", DEFAULT_MIN_PULSE_US)
         )
-        self.write_mode = rospy.get_param("~i2c_write_mode", "byte")
-        self.retries = int(rospy.get_param("~i2c_retries", 2))
+        self.max_pulse_us = int(
+            rospy.get_param("~max_pulse_us", DEFAULT_MAX_PULSE_US)
+        )
+        self.open_angle = int(rospy.get_param("~open_angle", DEFAULT_OPEN_ANGLE))
+        self.close_angle = int(rospy.get_param("~close_angle", DEFAULT_CLOSE_ANGLE))
+        self.action_delay_sec = float(
+            rospy.get_param("~action_delay_sec", DEFAULT_ACTION_DELAY_SEC)
+        )
+        self.command_channels = self._load_command_channels()
+        self.lock = threading.Lock()
         self.bus = SMBus(self.bus_id)
 
+        self._initialize_pca9685()
+
         rospy.loginfo(
-            "[Throw] I2C ready: bus=%d address=0x%02X mode=%s throw_command=0x%02X",
+            "[Throw] PCA9685 ready: bus=%d address=0x%02X frequency=%dHz",
             self.bus_id,
             self.address,
-            self.write_mode,
-            self.throw_command,
+            self.frequency_hz,
+        )
+
+    def _load_command_channels(self):
+        channels = rospy.get_param("~command_channels", [])
+        return [int(channel) for channel in channels]
+
+    def _initialize_pca9685(self):
+        self.bus.write_byte_data(self.address, MODE1, MODE1_AUTO_INCREMENT)
+        self.bus.write_byte_data(self.address, MODE2, MODE2_OUTDRV)
+        self._set_pwm_frequency(self.frequency_hz)
+        self.release_all()
+
+    def _set_pwm_frequency(self, frequency_hz):
+        prescale_value = int(round(25000000.0 / (4096 * frequency_hz)) - 1)
+        old_mode = self.bus.read_byte_data(self.address, MODE1)
+        sleep_mode = (old_mode & 0x7F) | MODE1_SLEEP
+
+        self.bus.write_byte_data(self.address, MODE1, sleep_mode)
+        self.bus.write_byte_data(self.address, PRESCALE, prescale_value)
+        self.bus.write_byte_data(self.address, MODE1, old_mode)
+        sleep(0.005)
+        self.bus.write_byte_data(
+            self.address, MODE1, old_mode | MODE1_RESTART | MODE1_AUTO_INCREMENT
         )
 
     def throwbottle(self, cmd):
-        if cmd < 0 or cmd > 255:
-            raise ValueError("I2C command must be in range 0..255")
+        channel = self._command_to_channel(cmd)
+        rospy.loginfo("[Throw] cmd=%d -> PCA9685 channel=%d", cmd, channel)
 
-        last_error = None
-        for attempt in range(self.retries + 1):
-            try:
-                self._write_throw_command(cmd)
-                return True
-            except OSError as error:
-                last_error = error
-                rospy.logwarn(
-                    "[Throw] I2C write failed on attempt %d/%d: %s",
-                    attempt + 1,
-                    self.retries + 1,
-                    error,
-                )
+        with self.lock:
+            self.set_servo_angle(channel, self.open_angle)
+            sleep(self.action_delay_sec)
+            self.set_servo_angle(channel, self.close_angle)
+            sleep(self.action_delay_sec)
+            self.set_servo_angle(channel, self.open_angle)
 
-        raise last_error
+        return True
 
-    def _write_throw_command(self, cmd):
-        if self.write_mode == "byte":
-            self.bus.write_byte(self.address, cmd)
-        elif self.write_mode == "byte_data":
-            self.bus.write_byte_data(self.address, self.throw_command, cmd)
-        elif self.write_mode == "block":
-            self.bus.write_i2c_block_data(self.address, self.throw_command, [cmd])
+    def _command_to_channel(self, cmd):
+        if self.command_channels:
+            index = cmd - 1
+            if index < 0 or index >= len(self.command_channels):
+                raise ValueError("Unsupported throw command: {}".format(cmd))
+            channel = self.command_channels[index]
         else:
-            raise ValueError("Unsupported I2C write mode: {}".format(self.write_mode))
+            channel = cmd - 1
+
+        if channel < 0 or channel > 15:
+            raise ValueError("PCA9685 channel must be in range 0..15")
+        return channel
+
+    def set_servo_angle(self, channel, angle):
+        angle = clamp(angle, 0, 180)
+        pulse_us = self.min_pulse_us + (
+            (self.max_pulse_us - self.min_pulse_us) * angle / 180.0
+        )
+        self.set_servo_pulse(channel, pulse_us)
+
+    def set_servo_pulse(self, channel, pulse_us):
+        pulse_us = clamp(pulse_us, self.min_pulse_us, self.max_pulse_us)
+        ticks = int(round(pulse_us * self.frequency_hz * 4096 / 1000000.0))
+        ticks = clamp(ticks, 0, 4095)
+        self._set_pwm(channel, 0, ticks)
+
+    def _set_pwm(self, channel, on_tick, off_tick):
+        register = LED0_ON_L + 4 * channel
+        self.bus.write_i2c_block_data(
+            self.address,
+            register,
+            [
+                on_tick & 0xFF,
+                on_tick >> 8,
+                off_tick & 0xFF,
+                off_tick >> 8,
+            ],
+        )
+
+    def _release_pwm(self, channel):
+        register = LED0_ON_L + 4 * channel
+        self.bus.write_i2c_block_data(self.address, register, [0, 0, 0, 0x10])
+
+    def release_all(self):
+        for channel in range(16):
+            self._release_pwm(channel)
 
     def close(self):
         if self.bus is not None:
+            self.release_all()
             self.bus.close()
             self.bus = None
 
 
 def throwbottle(cmd):
-    if i2c_controller is None:
-        raise RuntimeError("I2C controller is not initialized")
-    return i2c_controller.throwbottle(cmd)
+    if servo_controller is None:
+        raise RuntimeError("PCA9685 controller is not initialized")
+    return servo_controller.throwbottle(cmd)
 
 
 def handle_throw_cmd(req):
     resp = throwcmdResponse()
     try:
         cmd = int(req.cmd)
-        rospy.loginfo("[Throw] Send throwbottle command over I2C: %d", cmd)
         resp.success = throwbottle(cmd)
     except Exception as error:
         rospy.logerr("[Throw] Service error: {}".format(error))
@@ -98,7 +183,7 @@ def handle_throw_cmd(req):
 
 if __name__ == "__main__":
     rospy.init_node("servo_control_node", anonymous=False)
-    i2c_controller = I2CThrowController()
+    servo_controller = PCA9685ServoController()
 
     service = rospy.Service("ThrowCmd", throwcmd, handle_throw_cmd)
     rospy.loginfo("[Throw] Service ready. Waiting for commands...")
@@ -106,5 +191,5 @@ if __name__ == "__main__":
     try:
         rospy.spin()
     finally:
-        i2c_controller.close()
+        servo_controller.close()
         rospy.loginfo("[Throw] Node terminated.")
