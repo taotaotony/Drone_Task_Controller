@@ -441,7 +441,7 @@ int main(int argc, char** argv) {
     std::string engine_path;
     // [修改] 参考 main.cpp 中 InGame 的读取方式，直接用本节点句柄 nh 读取参数。
     // 参数名为 engine_path；换模型时只需要在 launch 或命令行里传入新路径，不需要重新编译。
-    nh.param<std::string>("engine_path", engine_path, "/home/ros/Desktop/VisionTest/best20250731.engine");
+    nh.param<std::string>("engine_path", engine_path, "best20260630_yolov8n.engine");
     ROS_INFO_STREAM("[Visual] TensorRT engine path: " << engine_path);
 
     if (engine_path.empty()) {
