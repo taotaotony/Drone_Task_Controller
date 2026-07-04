@@ -1,5 +1,5 @@
 <launch>
-   <arg name="engine_path" default="best20260630_yolov8n.engine"/>
+   <arg name="engine_path" default="$(find px4_controller)/best20260630_yolov8n.engine"/>
    <param name="InGame" type="bool" value="true"/>
    <!-- [修改] TensorRT 模型路径外部传参；启动时可用 engine_path:=新模型路径 覆盖。 -->
    <param name="engine_path" type="string" value="$(arg engine_path)"/>
