@@ -1,5 +1,9 @@
 <launch>
+   <arg name="engine_path" default="/home/ros/Desktop/VisionTest/best20250731.engine"/>
+
    <param name="InGame" type="bool" value="true"/>
+   <!-- [修改] TensorRT 模型路径外部传参；启动时可用 engine_path:=新模型路径 覆盖。 -->
+   <param name="engine_path" type="string" value="$(arg engine_path)"/>
 
    <!-- Node -->
    <node pkg="px4_controller" type="SetPoint" name="SetPoint" output="screen"/>

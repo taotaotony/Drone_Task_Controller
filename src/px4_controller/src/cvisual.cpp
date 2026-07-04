@@ -19,6 +19,7 @@
 #include <deque>
 #include <cmath>
 #include <limits>
+#include <string>
 
 // 标定参数读取器
 HeightCalibration calib;
@@ -436,7 +437,18 @@ int main(int argc, char** argv) {
     }
     lidar_sub = nh.subscribe<sensor_msgs::Range>("/mavros/distance_sensor/hrlv_ez4_pub",10,lidar_cb);
     // ---------- 1. 加载 TensorRT 引擎 ----------
-    std::string engine_path = "/home/ros/Desktop/VisionTest/best20250731.engine";
+    /*>>>外部参数<<<*/
+    std::string engine_path;
+    // [修改] 参考 main.cpp 中 InGame 的读取方式，直接用本节点句柄 nh 读取参数。
+    // 参数名为 engine_path；换模型时只需要在 launch 或命令行里传入新路径，不需要重新编译。
+    nh.param<std::string>("engine_path", engine_path, "/home/ros/Desktop/VisionTest/best20250731.engine");
+    ROS_INFO_STREAM("[Visual] TensorRT engine path: " << engine_path);
+
+    if (engine_path.empty()) {
+        ROS_ERROR("[Visual] engine_path is empty. Please set a valid TensorRT engine path.");
+        return -1;
+    }
+
     std::ifstream engine_file(engine_path, std::ios::binary);
     if (!engine_file.is_open()) {
         ROS_ERROR("Cannot open engine file: %s", engine_path.c_str());
