@@ -1,10 +1,26 @@
 <launch>
+   <arg name="engine_path" default="/home/ros/Desktop/VisionTest/best20250731.engine"/>
+   <arg name="throw_i2c_bus" default="1"/>
+   <arg name="throw_i2c_address" default="0x08"/>
+   <arg name="throw_i2c_write_mode" default="byte"/>
+   <arg name="throw_command" default="0x01"/>
+   <arg name="throw_i2c_retries" default="2"/>
+
    <param name="InGame" type="bool" value="false"/>
+   <!-- [修改] TensorRT 模型路径外部传参；启动时可用 engine_path:=新模型路径 覆盖。 -->
+   <param name="engine_path" type="string" value="$(arg engine_path)"/>
 
    <!-- Node -->
    <node pkg="px4_controller" type="SetPoint" name="SetPoint" output="screen"/>
    <node pkg="px4_controller" type="cvisual" name="cvisual" output="screen"/>
    <!-- <node pkg="px4_controller" type="Throw" name="throw" output="screen"/> -->
-   <node pkg="px4_controller" type="servo_control_node.py" name="servo_control" output="screen"/>
+   <node pkg="px4_controller" type="servo_control_node.py" name="servo_control" output="screen">
+      <!-- [整合] I2C 投放控制参数：修改 launch 参数即可适配不同控制板，无需改脚本。 -->
+      <param name="i2c_bus" type="int" value="$(arg throw_i2c_bus)"/>
+      <param name="i2c_address" type="string" value="$(arg throw_i2c_address)"/>
+      <param name="i2c_write_mode" type="string" value="$(arg throw_i2c_write_mode)"/>
+      <param name="throw_command" type="string" value="$(arg throw_command)"/>
+      <param name="i2c_retries" type="int" value="$(arg throw_i2c_retries)"/>
+   </node>
    <node pkg="px4_controller" type="Main" name="main" output="screen"/>
 </launch>
