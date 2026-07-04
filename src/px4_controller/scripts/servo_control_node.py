@@ -9,7 +9,7 @@ try:
     from smbus2 import SMBus
 except ImportError:
     from smbus import SMBus
-#123
+
 
 MODE1 = 0x00
 MODE2 = 0x01
@@ -62,6 +62,7 @@ class PCA9685ServoController:
             rospy.get_param("~action_delay_sec", DEFAULT_ACTION_DELAY_SEC)
         )
         self.command_channels = self._load_command_channels()
+        self._validate_config()
         self.lock = threading.Lock()
         self.bus = SMBus(self.bus_id)
 
@@ -76,9 +77,22 @@ class PCA9685ServoController:
 
     def _load_command_channels(self):
         channels = rospy.get_param("~command_channels", [])
-        return [int(channel) for channel in channels]
+        return [parse_int_param(channel) for channel in channels]
+
+    def _validate_config(self):
+        if self.frequency_hz <= 0:
+            raise ValueError("frequency_hz must be greater than 0")
+        if self.min_pulse_us >= self.max_pulse_us:
+            raise ValueError("min_pulse_us must be smaller than max_pulse_us")
+        if self.action_delay_sec < 0:
+            raise ValueError("action_delay_sec must not be negative")
+        for channel in self.command_channels:
+            if channel < 0 or channel > 15:
+                raise ValueError("command_channels must contain values from 0 to 15")
 
     def _initialize_pca9685(self):
+        self.bus.write_byte_data(self.address, MODE1, 0x00)
+        sleep(0.005)
         self.bus.write_byte_data(self.address, MODE1, MODE1_AUTO_INCREMENT)
         self.bus.write_byte_data(self.address, MODE2, MODE2_OUTDRV)
         self._set_pwm_frequency(self.frequency_hz)
@@ -86,6 +100,12 @@ class PCA9685ServoController:
 
     def _set_pwm_frequency(self, frequency_hz):
         prescale_value = int(round(25000000.0 / (4096 * frequency_hz)) - 1)
+        if prescale_value < 3 or prescale_value > 255:
+            raise ValueError(
+                "frequency_hz is outside PCA9685 prescale range: {}".format(
+                    frequency_hz
+                )
+            )
         old_mode = self.bus.read_byte_data(self.address, MODE1)
         sleep_mode = (old_mode & 0x7F) | MODE1_SLEEP
 
