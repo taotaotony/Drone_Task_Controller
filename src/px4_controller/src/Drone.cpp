@@ -227,22 +227,56 @@ void Drone::Throw(const httplib::Request& req, httplib::Response& res)
     try
     {
         int id = std::stoi(req.get_param_value("id"));
-        if(id == 1)
+        switch(id)
         {
-            ThrowBottle(1);
-            res.set_content("Throw 1 OK", "text/plain");
-            res.status = 200; return;
-        }
-        else if(id == 2)
-        {
-            ThrowBottle(2);
-            res.set_content("Throw 2 OK", "text/plain");
-            res.status = 200; return;
-        }
-        else
-        {
-            res.set_content("Param ERROR! 'id' must be 1 or 2 ", "text/plain");
-            res.status = 400; return;
+            case 1:
+            {
+                ThrowBottle(1);
+                res.set_content("Throw 1 OK", "text/plain");
+                res.status = 200; return;
+                break;
+            }
+            case 2:
+            {
+                ThrowBottle(2);
+                res.set_content("Throw 2 OK", "text/plain");
+                res.status = 200; return;
+                break;
+            }
+            case 3:
+            {
+                ThrowBottle(3);
+                res.set_content("Open 1 OK", "text/plain");
+                res.status = 200; return;
+                break;
+            }
+            case 4:
+            {
+                ThrowBottle(4);
+                res.set_content("Close 1 OK", "text/plain");
+                res.status = 200; return;
+                break;
+            }
+            case 5:
+            {
+                ThrowBottle(5);
+                res.set_content("Open 2 OK", "text/plain");
+                res.status = 200; return;
+                break;
+            }
+            case 6:
+            {
+                ThrowBottle(6);
+                res.set_content("Close 2 OK", "text/plain");
+                res.status = 200; return;
+                break;
+            }
+            default:
+            {
+                res.set_content("Param ERROR! 'id' must be 1 - 6 ", "text/plain");
+                res.status = 400; return;
+                break;
+            }
         }
     }
     catch (...)

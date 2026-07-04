@@ -201,6 +201,7 @@ bool ThrowBottle(int cmd)
     command.request.cmd = cmd;
     if (throw_client.call(command))
     {
+        ROS_INFO_STREAM("\033[32m" << "[Throw] Throw Successfully!" << "\033[0m");
         return true;
     }
     else
