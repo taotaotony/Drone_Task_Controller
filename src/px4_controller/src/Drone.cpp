@@ -233,7 +233,7 @@ void Drone::Throw(const httplib::Request& req, httplib::Response& res)
             res.set_content("Throw 1 OK", "text/plain");
             res.status = 200; return;
         }
-        else if(id == 1)
+        else if(id == 2)
         {
             ThrowBottle(2);
             res.set_content("Throw 2 OK", "text/plain");
