@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
     ros::ServiceServer server = nh.advertiseService("SendPosition",SetPosition);
     ROS_INFO_STREAM("\033[32m" << "[SetPoint] 位置速度发布服务成功启动!" << "\033[0m");
 
-    ros::Rate loop_rate(10);
+    ros::Rate loop_rate(30);
     vel_msg.coordinate_frame = mavros_msgs::PositionTarget::FRAME_LOCAL_NED;  //Attention!!! NED  not ENU
     vel_msg.type_mask = 
         mavros_msgs::PositionTarget::IGNORE_PX | 

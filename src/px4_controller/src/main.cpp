@@ -50,7 +50,7 @@ int main(int argc,char *argv[])
     vel_sub = nh.subscribe<geometry_msgs::TwistStamped>("/mavros/local_position/velocity_local",10,vel_cb);
     lidar_sub = nh.subscribe<sensor_msgs::Range>("/mavros/distance_sensor/hrlv_ez4_pub",10,lidar_cb);
     last_request=ros::Time::now();
-    ros::Rate rate(30.0);
+    ros::Rate rate(40.0);
     
     webserver.start();
     // while(ros::ok)
