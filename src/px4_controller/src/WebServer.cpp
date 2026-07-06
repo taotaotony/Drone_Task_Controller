@@ -43,8 +43,9 @@ void WebServer::stop()
 
 void WebServer::handle_pid(const httplib::Request& req, httplib::Response& res)
 {
-    if (!req.has_param("channel") || !req.has_param("p") ||
-        !req.has_param("i") || !req.has_param("d") || !req.has_param("limit")) {
+    if (!req.has_param("p") || !req.has_param("i") || 
+        !req.has_param("d") || !req.has_param("limit") || !req.has_param("deadzone"))
+    {
         res.set_content("Param ERROR!", "text/plain");
         std::cout << "\nerror!\n";
         res.status = 400;
@@ -52,16 +53,17 @@ void WebServer::handle_pid(const httplib::Request& req, httplib::Response& res)
     }
 
     try {
-        int channel = std::stoi(req.get_param_value("channel"));
         double p = std::stod(req.get_param_value("p"));
         double i = std::stod(req.get_param_value("i"));
         double d = std::stod(req.get_param_value("d"));
         double limit = std::stod(req.get_param_value("limit"));
-
+        double deadzone = std::stod(req.get_param_value("deadzone"));
         // pos_pid_xy 是全局 PID 结构体，定义在 main.h 中
         pos_pid_xy.kp = p;
         pos_pid_xy.ki = i;
         pos_pid_xy.kd = d;
+        pos_pid_xy.limit = limit;
+        pos_pid_xy.deadzone = deadzone;
         ROS_INFO("已更新瞄准PID参数 Kp = %.6f Ki = %.6f Kd = %.6f",
                  pos_pid_xy.kp, pos_pid_xy.ki, pos_pid_xy.kd);
 

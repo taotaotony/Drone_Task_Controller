@@ -53,13 +53,7 @@ int main(int argc,char *argv[])
     ros::Rate rate(40.0);
     
     webserver.start();
-    // while(ros::ok)
-    // {
-    // ros::Duration(2).sleep();
-    // ThrowBottle(1);
-    // ros::Duration(2).sleep();
-    // ThrowBottle(2);
-    // }
+
     ConnectPX4();
     // ── 状态机主循环 ──────────────────────────
     while (ros::ok())
@@ -69,46 +63,3 @@ int main(int argc,char *argv[])
         rate.sleep();
     }
 }
-
-
-    /*/视觉测试部分
-    while(1)
-    {
-        std::cout<<VisualData.Target1_Exist<<std::endl;
-        std::cout<<VisualData.Target2_Exist<<std::endl;
-        std::cout<<VisualData.Target3_Exist<<std::endl;
-        //计算中心点
-        int c1x=(VisualData.Target1_LU_x+VisualData.Target1_RD_x)/2;
-        int c1y=(VisualData.Target1_LU_y+VisualData.Target1_RD_y)/2;
-        std::cout<<"1桶("<<c1x<<","<<c1y<<")"<<std::endl;
-        std::cout<<"1桶RDx:"<<VisualData.Target1_RD_x<<std::endl;
-        ros::spinOnce();
-        
-        ros::Duration(1).sleep();
-    }
-*/
-
-//投放测试部分
-
-
-    // ros::Duration(5).sleep();
-    // ThrowBottle(1);
-    // ros::Duration(5).sleep();
-    //ThrowBottle(3);
-    // ros::Duration(5).sleep();
-    //Positioning();
-
-
-    
-
-
-    //降低投放测试
-    // SlowDescend(PX4_Position.x,PX4_Position.y,3.5,0.8);
-    // ThrowBottle(1);
-    // ShowPosition(3);
-    // SetPoint(PX4_Position.x,PX4_Position.y,3.5);
-    // ShowPosition(10);
-    // SlowDescend(PX4_Position.x,PX4_Position.y,3.5,0.8);
-    // ThrowBottle(3);
-    // ShowPosition(30999);
-

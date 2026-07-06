@@ -64,7 +64,7 @@
 // ── 类型定义 ────────────────────────────────
 struct PIDController
 {
-    double kp, ki, kd;
+    double kp, ki, kd, limit, deadzone;
     double ans_error;
     double previous_error;
 };
