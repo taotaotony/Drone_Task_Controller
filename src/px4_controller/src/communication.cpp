@@ -136,16 +136,19 @@ void imu_cb(const sensor_msgs::Imu::ConstPtr& msg)
 void vel_cb(const geometry_msgs::TwistStamped::ConstPtr& msg)
 {
     vel_msg = *msg;
+    // 全局变量保持 ENU 坐标系（兼容现有代码）
     PX4_Velocity.vx = vel_msg.twist.linear.x;
     PX4_Velocity.vy = vel_msg.twist.linear.y;
     PX4_Velocity.vz = vel_msg.twist.linear.z;
 
-    // 更新遥测快照
+    // 更新遥测快照：转换为机体坐标系（Y=前方, X=右侧）
     {
+        double body_vx, body_vy;
+        ENUToBody(vel_msg.twist.linear.x, vel_msg.twist.linear.y, body_vx, body_vy);
         std::lock_guard<std::mutex> lock(telemetry_mutex);
-        telemetry_snapshot.vel_x = PX4_Velocity.vx;
-        telemetry_snapshot.vel_y = PX4_Velocity.vy;
-        telemetry_snapshot.vel_z = PX4_Velocity.vz;
+        telemetry_snapshot.vel_x = body_vx;
+        telemetry_snapshot.vel_y = body_vy;
+        telemetry_snapshot.vel_z = vel_msg.twist.linear.z;
     }
 }
 
