@@ -1,5 +1,6 @@
 #include "main.h"                   //大部分全局变量
 #include "WebServer.h"              //PID网络调参函数
+#include "TelemetryBroadcaster.h"   //UDP遥测广播
 #include "communication.h"          //通信相关函数
 #include "aim.h"                    //瞄准相关函数
 #include "control.h"                //飞控控制指令相关函数
@@ -13,6 +14,7 @@ double initial_yaw;
 
 Drone drone;                                   // 定义无人机状态机对象
 WebServer webserver(drone);                    // 定义网络服务器对象
+TelemetryBroadcaster telemetry_broadcaster;    // UDP 遥测广播对象
 
 HeightCalibration calib;
 
@@ -53,6 +55,7 @@ int main(int argc,char *argv[])
     ros::Rate rate(40.0);
     
     webserver.start();
+    telemetry_broadcaster.start();
 
     ConnectPX4();
     // ── 状态机主循环 ──────────────────────────
