@@ -44,7 +44,7 @@ int main(int argc,char *argv[])
     set_position_client = nh.serviceClient<px4_controller::position>("SendPosition");                             // 发送目标点服务通信
     throw_client = nh.serviceClient<px4_controller::throwcmd>("ThrowCmd");                                        // 投放服务通信
     state_sub = nh.subscribe<mavros_msgs::State>("mavros/state", 10, state_cb);
-    visual_sub=nh.subscribe("IR",10,visual_cb);
+    visual_sub=nh.subscribe("IR",1,visual_cb);////队列是一
     pos_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose",10,pos_cb);
     imu_sub = nh.subscribe<sensor_msgs::Imu>("/mavros/imu/data",10,imu_cb);
     vel_sub = nh.subscribe<geometry_msgs::TwistStamped>("/mavros/local_position/velocity_local",10,vel_cb);

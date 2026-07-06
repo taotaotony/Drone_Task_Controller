@@ -1,8 +1,11 @@
 <launch>
+<launch>
    <arg name="engine_path" default="$(find px4_controller)/best20260630_yolov8n.engine"/>
+   <arg name="show_debug" default="true"/>
    <param name="InGame" type="bool" value="false"/>
    <!-- [修改] TensorRT 模型路径外部传参；启动时可用 engine_path:=新模型路径 覆盖。 -->
    <param name="engine_path" type="string" value="$(arg engine_path)"/>
+   <param name="show_debug" type="bool" value="$(arg show_debug)"/>
    <!-- Node -->
    <node pkg="px4_controller" type="SetPoint" name="SetPoint" output="screen"/>
    <node pkg="px4_controller" type="cvisual" name="cvisual" output="screen"/>

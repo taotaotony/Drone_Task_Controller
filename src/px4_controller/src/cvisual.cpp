@@ -44,7 +44,9 @@ const int NUM_ANCHORS = 8400;
 const int NUM_CLASSES = 80;
 const float CONF_THRESH = 0.4f;
 const float IOU_THRESH = 0.45f;
-const float CENTER_DIST_RATIO = 50.0f;   // 中心距离合并阈值(相对于较小框宽度)
+const float CENTER_DIST_RATIO = 2.0f; //50.0f   // 桶距离很近、容易被合并：0.8 ~ 1.2
+                                                // 同一个桶重复框较多：1.5 ~ 2.0
+                                                // 不建议超过 3.0  // 中心距离合并阈值(相对于较小框宽度)
 const int   NEW_W = 1200;//864;
 const int   NEW_H = 750;//540;
 
@@ -550,12 +552,46 @@ void lidar_cb(const sensor_msgs::Range::ConstPtr& msg)
     return;
 }
 
-// ======================== 主函数 ========================
+// ======================== ROS message packing ========================
+px4_controller::tbag make_visual_msg(const std::vector<Detection>& tracked)
+{
+    px4_controller::tbag msg;
+    msg.Target1_Exist = 0;
+    msg.Target2_Exist = 0;
+    msg.Target3_Exist = 0;
+
+    for (size_t i = 0; i < tracked.size() && i < 3; ++i) {
+        const Detection& d = tracked[i];
+        if (i == 0) {
+            msg.Target1_Exist = 1; msg.Target1_PR = d.conf;
+            msg.Target1_LU_x = d.x1; msg.Target1_LU_y = d.y1;
+            msg.Target1_RU_x = d.x2; msg.Target1_RU_y = d.y1;
+            msg.Target1_RD_x = d.x2; msg.Target1_RD_y = d.y2;
+            msg.Target1_LD_x = d.x1; msg.Target1_LD_y = d.y2;
+        } else if (i == 1) {
+            msg.Target2_Exist = 1; msg.Target2_PR = d.conf;
+            msg.Target2_LU_x = d.x1; msg.Target2_LU_y = d.y1;
+            msg.Target2_RU_x = d.x2; msg.Target2_RU_y = d.y1;
+            msg.Target2_RD_x = d.x2; msg.Target2_RD_y = d.y2;
+            msg.Target2_LD_x = d.x1; msg.Target2_LD_y = d.y2;
+        } else if (i == 2) {
+            msg.Target3_Exist = 1; msg.Target3_PR = d.conf;
+            msg.Target3_LU_x = d.x1; msg.Target3_LU_y = d.y1;
+            msg.Target3_RU_x = d.x2; msg.Target3_RU_y = d.y1;
+            msg.Target3_RD_x = d.x2; msg.Target3_RD_y = d.y2;
+            msg.Target3_LD_x = d.x1; msg.Target3_LD_y = d.y2;
+        }
+    }
+
+    return msg;
+}
+
+// ======================== Main ========================
 int main(int argc, char** argv) {
     ros::init(argc, argv, "visual_node");
     setlocale(LC_ALL,"");
     ros::NodeHandle nh;
-    ros::Publisher pub = nh.advertise<px4_controller::tbag>("IR", 10);
+    ros::Publisher pub = nh.advertise<px4_controller::tbag>("IR", 1);
     // 读取标定参数(非必要)
     std::string package_path = ros::package::getPath("px4_controller");
     std::string file_path = package_path + "/config/calibration_data.txt";
@@ -571,10 +607,13 @@ int main(int argc, char** argv) {
     // ---------- 1. 加载 TensorRT 引擎 ----------
     /*>>>外部参数<<<*/
     std::string engine_path;
+    bool show_debug = false;
     // [修改] 参考 main.cpp 中 InGame 的读取方式，直接用本节点句柄 nh 读取参数。
     // 参数名为 engine_path；换模型时只需要在 launch 或命令行里传入新路径，不需要重新编译。
     nh.param<std::string>("engine_path", engine_path, "best20260630_yolov8n.engine");
+    nh.param<bool>("show_debug", show_debug, false);
     ROS_INFO_STREAM("[Visual] TensorRT engine path: " << engine_path);
+    ROS_INFO_STREAM("[Visual] show_debug: " << (show_debug ? "true" : "false"));
 
     if (engine_path.empty()) {
         ROS_ERROR("[Visual] engine_path is empty. Please set a valid TensorRT engine path.");
@@ -632,7 +671,7 @@ int main(int argc, char** argv) {
 
     // ---------- 线程安全结果队列 ----------
     // 最多缓存3帧推理结果，超过则丢弃最旧帧以保持低延迟
-    ThreadSafeQueue<InferenceResult> result_queue(3);
+    ThreadSafeQueue<InferenceResult> result_queue(1);
 
     // ---------- 2. 打开摄像头 (GStreamer) ----------
     cv::VideoCapture cap;
@@ -684,7 +723,9 @@ int main(int argc, char** argv) {
     // ---------- 4. 主循环（仅 CPU 后处理 + 绘制 + 发布） ----------
     // GPU推理已在独立线程中完成，主线程只做CPU工作
     cv::Mat display_frame;
-    cv::namedWindow("Detection", cv::WINDOW_NORMAL);
+    if (show_debug) {
+        cv::namedWindow("Detection", cv::WINDOW_NORMAL);
+    }
 
     double prev_time = ros::Time::now().toSec();
     double fps = 0.0;
@@ -692,8 +733,8 @@ int main(int argc, char** argv) {
     double fps_accum = 0.0;
     double fps_avg = 0.0;
 
-    // 发布速率控制：45Hz（比 main 的 40Hz 略高，保证每次main消费时有新数据）
-    const double PUBLISH_INTERVAL = 1.0 / 45.0;
+    // Publish the newest visual result at 30 Hz; keep inference running as fast as possible.
+    const double PUBLISH_INTERVAL = 1.0 / 30.0;
     double last_publish_time = 0.0;
 
     while (ros::ok()) {
@@ -708,7 +749,14 @@ int main(int argc, char** argv) {
                                                result.img_width, result.img_height);
                 auto tracked = tracker.update(detections, result.img_width, result.img_height);
 
+                double now_pub = ros::Time::now().toSec();
+                if (now_pub - last_publish_time >= PUBLISH_INTERVAL) {
+                    pub.publish(make_visual_msg(tracked));
+                    last_publish_time = now_pub;
+                }
+
                 // ---- 获取最新帧用于显示 ----
+                if (show_debug) {
                 cv::Mat frame;
                 {
                     std::lock_guard<std::mutex> lock(frame_mutex);
@@ -788,39 +836,9 @@ int main(int argc, char** argv) {
                 cv::Mat display_small;
                 cv::resize(display_frame, display_small, cv::Size(NEW_W, NEW_H));
                 cv::imshow("Detection", display_small);
-                cv::waitKey(1);
-
-                // ---- 发布 ROS 消息（按45Hz限速） ----
-                double now_pub = ros::Time::now().toSec();
-                if (now_pub - last_publish_time >= PUBLISH_INTERVAL) {
-                px4_controller::tbag msg;
-                msg.Target1_Exist = 0; msg.Target2_Exist = 0; msg.Target3_Exist = 0;
-
-                for (size_t i = 0; i < tracked.size() && i < 3; ++i) {
-                    const Detection& d = tracked[i];
-                    if (i == 0) {
-                        msg.Target1_Exist = 1; msg.Target1_PR = d.conf;
-                        msg.Target1_LU_x = d.x1; msg.Target1_LU_y = d.y1;
-                        msg.Target1_RU_x = d.x2; msg.Target1_RU_y = d.y1;
-                        msg.Target1_RD_x = d.x2; msg.Target1_RD_y = d.y2;
-                        msg.Target1_LD_x = d.x1; msg.Target1_LD_y = d.y2;
-                    } else if (i == 1) {
-                        msg.Target2_Exist = 1; msg.Target2_PR = d.conf;
-                        msg.Target2_LU_x = d.x1; msg.Target2_LU_y = d.y1;
-                        msg.Target2_RU_x = d.x2; msg.Target2_RU_y = d.y1;
-                        msg.Target2_RD_x = d.x2; msg.Target2_RD_y = d.y2;
-                        msg.Target2_LD_x = d.x1; msg.Target2_LD_y = d.y2;
-                    } else if (i == 2) {
-                        msg.Target3_Exist = 1; msg.Target3_PR = d.conf;
-                        msg.Target3_LU_x = d.x1; msg.Target3_LU_y = d.y1;
-                        msg.Target3_RU_x = d.x2; msg.Target3_RU_y = d.y1;
-                        msg.Target3_RD_x = d.x2; msg.Target3_RD_y = d.y2;
-                        msg.Target3_LD_x = d.x1; msg.Target3_LD_y = d.y2;
-                    }
+                if (cv::waitKey(1) == 'q') break;
                 }
-                pub.publish(msg);
-                last_publish_time = now_pub;
-                }
+
             } catch (const cv::Exception& e) {
                 ROS_ERROR_STREAM("Main loop error: " << e.what());
                 break;
@@ -831,7 +849,6 @@ int main(int argc, char** argv) {
         // 必须放在主循环中，与 ros::init 和 NodeHandle 同一线程
         ros::spinOnce();
 
-        if (cv::waitKey(1) == 'q') break;
 
         // 如果没有结果，短暂休眠避免忙等
         if (!got_result) {
@@ -852,7 +869,9 @@ int main(int argc, char** argv) {
     engine->destroy();
     runtime->destroy();
     cap.release();
-    cv::destroyAllWindows();
+    if (show_debug) {
+        cv::destroyAllWindows();
+    }
 
     return 0;
 }
