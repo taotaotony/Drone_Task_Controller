@@ -1,0 +1,242 @@
+cmake_minimum_required(VERSION 3.0.2)  # 指定CMake最低版本为3.0.2，这是ROS Kinetic及更新版本支持的最低版本
+project(px4_controller)  # 定义项目名称为px4_controller，后续可通过${PROJECT_NAME}引用
+
+## Compile as C++11, supported in ROS Kinetic and newer  # 注释：编译为C++11标准，ROS Kinetic及更新版本支持
+# add_compile_options(-std=c++11)  # 注释掉的C++11编译选项，现代ROS版本通常默认支持
+
+## Find catkin macros and libraries  # 注释：查找catkin宏和库
+## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)  # 注释：如果使用COMPONENTS列表查找catkin
+## is used, also find other catkin packages  # 注释：也会自动查找其他catkin包
+set(CUDA_INCLUDE_DIRS /usr/local/cuda/include)  # 手动设置CUDA头文件目录路径
+set(CUDA_LIB_DIR /usr/local/cuda/lib64)  # 手动设置CUDA库目录路径（64位）
+
+include_directories(  # 配置头文件搜索路径
+  ${catkin_INCLUDE_DIRS}  # Catkin包的包含目录（find_package后自动填充）
+  ${OpenCV_INCLUDE_DIRS}  # OpenCV头文件目录（find_package后自动填充）
+  ${TENSORRT_INCLUDE_DIR}     # /usr/include/aarch64-linux-gnu  # TensorRT头文件目录，通常是ARM架构路径
+  ${CUDA_INCLUDE_DIRS}        # /usr/local/cuda/include  # CUDA头文件目录
+)
+
+set(OpenCV_DIR /usr/local/lib/cmake/opencv4)  # 设置OpenCV的CMake配置文件路径（opencv4版本）
+find_package(OpenCV REQUIRED PATHS ${OpenCV_DIR} NO_DEFAULT_PATH)  # 在指定路径查找OpenCV，不使用默认路径
+# find_package(JetsonGPIO REQUIRED)  # 注释：查找JetsonGPIO库（NVIDIA Jetson平台的GPIO控制库）
+find_package(catkin REQUIRED COMPONENTS  # 查找必需的catkin包
+  roscpp  # ROS C++客户端库，用于编写C++节点
+  rospy  # ROS Python客户端库
+  std_msgs  # 标准消息类型包（String, Int32, Float64等）
+  mavros  # MAVLink通信库，用于与PX4飞控通信
+  message_generation  # 消息生成工具，用于编译自定义.msg和.srv文件
+  #Eigen3 REQUIRED  # 注释：线性代数库Eigen3
+)
+find_package(OpenCV REQUIRED)  # 再次查找OpenCV（使用默认路径，可能是为了兼容性）
+## System dependencies are found with CMake's conventions  # 注释：系统依赖使用CMake约定查找
+# find_package(Boost REQUIRED COMPONENTS system)  # 注释：查找Boost系统库
+
+
+## Uncomment this if the package has a setup.py. This macro ensures  # 注释：如果包有setup.py，取消此注释
+## modules and global scripts declared therein get installed  # 注释：确保安装setup.py中声明的模块和全局脚本
+## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html  # 注释：参考链接
+# catkin_python_setup()  # 注释：catkin Python设置宏（此包主要是C++，所以注释）
+
+################################################
+## Declare ROS messages, services and actions ##
+################################################
+
+## To declare and build messages, services or actions from within this  # 注释：声明和构建消息、服务、动作的说明
+## package, follow these steps:  # 注释：遵循以下步骤
+## * Let MSG_DEP_SET be the set of packages whose message types you use in  # 注释：定义MSG_DEP_SET为消息中使用的包集合
+##   your messages/services/actions (e.g. std_msgs, actionlib_msgs, ...).  # 注释：例如std_msgs, actionlib_msgs等
+## * In the file package.xml:  # 注释：在package.xml文件中
+##   * add a build_depend tag for "message_generation"  # 注释：添加message_generation的build_depend标签
+##   * add a build_depend and a exec_depend tag for each package in MSG_DEP_SET  # 注释：为MSG_DEP_SET中的每个包添加build_depend和exec_depend
+##   * If MSG_DEP_SET isn't empty the following dependency has been pulled in  # 注释：如果MSG_DEP_SET不为空，以下依赖已被引入
+##     but can be declared for certainty nonetheless:  # 注释：但为了确定起见仍可声明
+##     * add a exec_depend tag for "message_runtime"  # 注释：添加message_runtime的exec_depend标签
+## * In this file (CMakeLists.txt):  # 注释：在此文件（CMakeLists.txt）中
+##   * add "message_generation" and every package in MSG_DEP_SET to  # 注释：添加message_generation和MSG_DEP_SET中所有包到
+##     find_package(catkin REQUIRED COMPONENTS ...)  # 注释：find_package(catkin REQUIRED COMPONENTS ...)
+##   * add "message_runtime" and every package in MSG_DEP_SET to  # 注释：添加message_runtime和MSG_DEP_SET中所有包到
+##     catkin_package(CATKIN_DEPENDS ...)  # 注释：catkin_package(CATKIN_DEPENDS ...)
+##   * uncomment the add_*_files sections below as needed  # 注释：根据需要取消注释add_*_files部分
+##     and list every .msg/.srv/.action file to be processed  # 注释：并列出所有要处理的.msg/.srv/.action文件
+##   * uncomment the generate_messages entry below  # 注释：取消注释generate_messages条目
+##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)  # 注释：添加MSG_DEP_SET中所有包到generate_messages(DEPENDENCIES ...)
+
+## Generate messages in the 'msg' folder  # 注释：在msg文件夹中生成消息
+add_message_files(  # 添加消息文件声明
+  FILES  # 文件列表关键字
+  tbag.msg  # 自定义消息文件：tbag.msg
+)
+
+## Generate services in the 'srv' folder  # 注释：在srv文件夹中生成服务
+add_service_files(  # 添加服务文件声明
+  FILES  # 文件列表关键字
+  position.srv  # 自定义服务文件：position.srv（位置相关服务）
+  throwcmd.srv  # 自定义服务文件：throwcmd.srv（投掷命令服务）
+)
+
+## Generate actions in the 'action' folder  # 注释：在action文件夹中生成动作（已注释）
+# add_action_files(  # 注释：添加动作文件声明
+#   FILES  # 注释：文件列表关键字
+#   Action1.action  # 注释：动作文件示例1
+#   Action2.action  # 注释：动作文件示例2
+# )
+
+## Generate added messages and services with any dependencies listed here  # 注释：生成消息和服务，并列出依赖
+generate_messages(  # 触发消息和服务代码生成
+  DEPENDENCIES  # 依赖项关键字
+  std_msgs  # 消息依赖的包：std_msgs（tbag.msg中可能使用了std_msgs的消息类型）
+)
+
+################################################
+## Declare ROS dynamic reconfigure parameters ##
+################################################
+
+## To declare and build dynamic reconfigure parameters within this  # 注释：声明和构建动态重配置参数的说明
+## package, follow these steps:  # 注释：遵循以下步骤
+## * In the file package.xml:  # 注释：在package.xml文件中
+##   * add a build_depend and a exec_depend tag for "dynamic_reconfigure"  # 注释：添加dynamic_reconfigure依赖
+## * In this file (CMakeLists.txt):  # 注释：在此文件中
+##   * add "dynamic_reconfigure" to  # 注释：添加dynamic_reconfigure到
+##     find_package(catkin REQUIRED COMPONENTS ...)  # 注释：find_package(catkin REQUIRED COMPONENTS ...)
+##   * uncomment the "generate_dynamic_reconfigure_options" section below  # 注释：取消注释generate_dynamic_reconfigure_options部分
+##     and list every .cfg file to be processed  # 注释：并列出所有要处理的.cfg文件
+
+## Generate dynamic reconfigure parameters in the 'cfg' folder  # 注释：在cfg文件夹中生成动态重配置参数（已注释）
+# generate_dynamic_reconfigure_options(  # 注释：生成动态重配置选项
+#   cfg/DynReconf1.cfg  # 注释：动态重配置配置文件1
+#   cfg/DynReconf2.cfg  # 注释：动态重配置配置文件2
+# )
+
+###################################
+## catkin specific configuration ##
+###################################
+## The catkin_package macro generates cmake config files for your package  # 注释：catkin_package宏为包生成cmake配置文件
+## Declare things to be passed to dependent projects  # 注释：声明要传递给依赖项目的内容
+## INCLUDE_DIRS: uncomment this if your package contains header files  # 注释：INCLUDE_DIRS：如果包包含头文件则取消注释
+## LIBRARIES: libraries you create in this project that dependent projects also need  # 注释：LIBRARIES：项目中创建的库，依赖项目也需要
+## CATKIN_DEPENDS: catkin_packages dependent projects also need  # 注释：CATKIN_DEPENDS：依赖项目也需要的catkin包
+## DEPENDS: system dependencies of this project that dependent projects also need  # 注释：DEPENDS：系统依赖，依赖项目也需要
+catkin_package(  # catkin包配置宏
+#  INCLUDE_DIRS include  # 注释：导出的头文件目录（已注释，因为此包没有公共头文件）
+#  LIBRARIES PX4_Controller  # 注释：导出的库名称（已注释，因为此包没有创建库）
+  CATKIN_DEPENDS roscpp rospy std_msgs message_runtime  # 依赖的catkin包（运行时依赖）
+#  DEPENDS system_lib  # 注释：系统级依赖（已注释）
+)
+
+###########
+## Build ##
+###########
+
+## Specify additional locations of header files  # 注释：指定头文件的额外位置
+## Your package locations should be listed before other locations  # 注释：包的位置应该列在其他位置之前
+include_directories(  # 配置头文件包含目录
+  include  # 项目头文件目录（include/）
+  src  # 源代码目录（src/）
+  ${catkin_INCLUDE_DIRS}  # 所有catkin依赖包的头文件目录
+  # ${JetsonGPIO_INCLUDE_DIRS}  # 注释：Jetson GPIO库头文件目录（已注释）
+  /usr/include/eigen3  # Eigen3线性代数库头文件目录（硬编码路径）
+)
+
+## Declare a C++ library  # 注释：声明C++库（已注释）
+# add_library(${PROJECT_NAME}  # 注释：添加库，库名为项目名
+#   src/${PROJECT_NAME}/PX4_Controller.cpp  # 注释：库的源文件（已注释）
+# )
+
+## Add cmake target dependencies of the library  # 注释：添加库的CMake目标依赖（已注释）
+## as an example, code may need to be generated before libraries  # 注释：例如，代码可能需要在库之前生成
+## either from message generation or dynamic reconfigure  # 注释：无论是消息生成还是动态重配置
+# add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})  # 注释：添加依赖关系
+
+## Declare a C++ executable  # 注释：声明C++可执行文件
+## With catkin_make all packages are built within a single CMake context  # 注释：catkin_make在单个CMake上下文中构建所有包
+## The recommended prefix ensures that target names across packages don't collide  # 注释：推荐的前缀确保跨包的目标名称不冲突
+add_executable(SetPoint src/SetPoint.cpp)  # 添加SetPoint可执行文件，源文件为src/SetPoint.cpp
+add_executable(Main src/main.cpp src/WebServer.cpp src/TelemetryBroadcaster.cpp src/communication.cpp src/control.cpp src/aim.cpp src/Drone.cpp src/calibration.cpp)  # 添加Main可执行文件，包含8个源文件
+# add_executable(Throw src/throw.cpp)  # 注释：添加Throw可执行文件（已注释）
+add_executable(cvisual src/cvisual.cpp src/calibration.cpp)  # 添加cvisual可执行文件，包含2个源文件
+## Rename C++ executable without prefix  # 注释：重命名C++可执行文件以移除前缀（已注释）
+## The above recommended prefix causes long target names, the following renames the  # 注释：上述推荐前缀导致目标名称过长，以下命令重命名为短版本
+## target back to the shorter version for ease of user use  # 注释：方便用户使用
+## e.g. "rosrun someones_pkg node" instead of "rosrun someones_pkg someones_pkg_node"  # 注释：例如：rosrun someones_pkg node 而不是 rosrun someones_pkg someones_pkg_node
+# set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX "")  # 注释：设置目标属性移除前缀
+
+## Add cmake target dependencies of the executable  # 注释：添加可执行文件的CMake目标依赖
+## same as for the library above  # 注释：与上面的库相同
+add_dependencies(SetPoint ${PROJECT_NAME}_gencpp)  # SetPoint依赖生成的消息代码（确保消息先生成）
+add_dependencies(Main ${PROJECT_NAME}_gencpp)  # Main依赖生成的消息代码（确保消息先生成）
+# add_dependencies(Throw ${PROJECT_NAME}_gencpp)  # 注释：Throw依赖生成的消息代码（已注释）
+## Specify libraries to link a library or executable target against  # 注释：指定要链接到库或可执行目标的库
+target_link_libraries(SetPoint  # 配置SetPoint的链接库
+  ${catkin_LIBRARIES}  # 所有catkin依赖库（roscpp, rospy, mavros等）
+)
+target_link_libraries(Main  # 配置Main的链接库
+  ${catkin_LIBRARIES}  # 所有catkin依赖库
+  ${OpenCV_LIBS}  # OpenCV库（用于图像处理）
+)
+# target_link_libraries(Throw  # 注释：配置Throw的链接库（已注释）
+#   ${catkin_LIBRARIES}  # 注释：所有catkin依赖库
+#   ${JetsonGPIO_LIBRARIES}  # 注释：Jetson GPIO库
+# )
+target_link_libraries(cvisual  # 配置cvisual的链接库（深度学习视觉处理节点）
+  ${catkin_LIBRARIES}  # Catkin依赖库
+  ${OpenCV_LIBS}  # OpenCV库（图像处理）
+  nvinfer nvinfer_plugin nvparsers nvonnxparser  # TensorRT相关库（推理引擎、插件、解析器、ONNX解析器）
+  cudart cublas  # CUDA库（运行时库和基础线性代数库）
+  pthread  # POSIX线程库（多线程支持）
+)
+#############
+## Install ##
+#############
+
+# all install targets should use catkin DESTINATION variables  # 注释：所有安装目标应使用catkin DESTINATION变量
+# See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html  # 注释：参考链接
+
+## Mark executable scripts (Python etc.) for installation  # 注释：标记可执行脚本（Python等）用于安装
+## in contrast to setup.py, you can choose the destination  # 注释：与setup.py不同，可以选择目标位置
+catkin_install_python(PROGRAMS  # 安装Python脚本
+  scripts/servo_control_node.py  # 舵机控制节点Python脚本
+  #scripts/Visual.py  # 注释：视觉节点Python脚本（已注释）
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}  # 安装目标目录（通常是lib/px4_controller/）
+)
+
+## Mark executables for installation  # 注释：标记可执行文件用于安装（已注释）
+## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html  # 注释：参考链接
+# install(TARGETS ${PROJECT_NAME}_node  # 注释：安装目标（可执行文件）
+#   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}  # 注释：运行时目标目录
+# )
+
+## Mark libraries for installation  # 注释：标记库用于安装（已注释）
+## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_libraries.html  # 注释：参考链接
+# install(TARGETS ${PROJECT_NAME}  # 注释：安装库目标
+#   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}  # 注释：静态库安装目录
+#   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}  # 注释：动态库安装目录
+#   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}  # 注释：运行时库安装目录
+# )
+
+## Mark cpp header files for installation  # 注释：标记C++头文件用于安装（已注释）
+# install(DIRECTORY include/${PROJECT_NAME}/  # 注释：安装目录
+#   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}  # 注释：目标目录
+#   FILES_MATCHING PATTERN "*.h"  # 注释：只匹配.h文件
+#   PATTERN ".svn" EXCLUDE  # 注释：排除.svn目录
+# )
+
+## Mark other files for installation (e.g. launch and bag files, etc.)  # 注释：标记其他文件用于安装（已注释）
+# install(FILES  # 注释：安装文件
+#   # myfile1  # 注释：文件1示例
+#   # myfile2  # 注释：文件2示例
+#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}  # 注释：安装到包共享目录
+# )
+
+#############
+## Testing ##
+#############
+
+## Add gtest based cpp test target and link libraries  # 注释：添加基于gtest的C++测试目标并链接库（已注释）
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_PX4_Controller.cpp)  # 注释：添加gtest测试
+# if(TARGET ${PROJECT_NAME}-test)  # 注释：如果测试目标存在
+#   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})  # 注释：链接库到测试目标
+# endif()  # 注释：结束if
+
+## Add folders to be run by python nosetests  # 注释：添加要由python nosetests运行的文件夹（已注释）
+# catkin_add_nosetests(test)  # 注释：添加nosetests测试
